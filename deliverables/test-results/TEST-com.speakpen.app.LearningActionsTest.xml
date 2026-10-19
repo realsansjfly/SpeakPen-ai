@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.LearningActionsTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.007">
+  <properties/>
+  <testcase name="oldDataWithoutHintMetadataStillLoads" classname="com.speakpen.app.LearningActionsTest" time="0.001"/>
+  <testcase name="topicPhraseBankUsesRealConversationAndFiltersHints" classname="com.speakpen.app.LearningActionsTest" time="0.001"/>
+  <testcase name="emptyRegenerationPreservesOldMessage" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="allHintsAreExcludedFromChatAndSummaryContext" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="regenerationReplacesOnlySelectedBlockAndInvalidatesAudioRevision" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="userOriginalCannotBeRegenerated" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="singleMessageExtractionNeverContainsOtherTurns" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="hintRegenerationKeepsTypeSourceAndContextAnchor" classname="com.speakpen.app.LearningActionsTest" time="0.001"/>
+  <testcase name="optimizingIntentUsesOnlyPriorActualConversation" classname="com.speakpen.app.LearningActionsTest" time="0.0"/>
+  <testcase name="hintAtEndDoesNotHideAnUnansweredUserMessage" classname="com.speakpen.app.LearningActionsTest" time="0.001"/>
+  <testcase name="hintMetadataSurvivesRestart" classname="com.speakpen.app.LearningActionsTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

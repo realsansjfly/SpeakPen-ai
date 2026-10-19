@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.ReportedBugsTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.009">
+  <properties/>
+  <testcase name="silentServiceTimesOutAndKeepsLatestPartialAsEditableText" classname="com.speakpen.app.ReportedBugsTest" time="0.006"/>
+  <testcase name="silentServiceWithNoTextShowsErrorAndUnlocksRecording" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="cancelWhileWaitingRemovesDeadlineAndDiscardsLateResult" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="repeatedNewConversationReusesUntouchedSession" classname="com.speakpen.app.ReportedBugsTest" time="0.001"/>
+  <testcase name="repeatedStopDoesNotRestartDeadlineOrStopRecognitionTwice" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="lateReadyCallbackCannotReactivateRecordingAfterStop" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="creatingNewConversationPreservesAllNonemptyHistory" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="switchingModeOnAnEmptySessionUpdatesTargetsWithoutAddingHistory" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="naturalEndOfSpeechAlsoShowsPendingAndHasBoundedWait" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="oldEmptyRecordsAreCleanedWithoutDeletingActualMessages" classname="com.speakpen.app.ReportedBugsTest" time="0.001"/>
+  <testcase name="pressingStopImmediatelyLeavesRecordingAndShowsRecognitionPending" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <testcase name="finalResultCancelsDeadlineAndLateCallbacksCannotOverwriteDraft" classname="com.speakpen.app.ReportedBugsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

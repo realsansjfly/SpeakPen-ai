@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.LearningDataTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.001">
+  <properties/>
+  <testcase name="rememberedTargetsGetIncreasingIntervalsAndFailuresReturnToNow" classname="com.speakpen.app.LearningDataTest" time="0.0"/>
+  <testcase name="reviewIntervalIsCappedAfterRepeatedSuccesses" classname="com.speakpen.app.LearningDataTest" time="0.0"/>
+  <testcase name="olderLocalFilesWithoutNewFieldsStillLoad" classname="com.speakpen.app.LearningDataTest" time="0.0"/>
+  <testcase name="learningDataRoundTripPreservesSourcesMarkersAndSchedule" classname="com.speakpen.app.LearningDataTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.VoiceAndStreamingTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.002">
+  <properties/>
+  <testcase name="truncatedStreamIsNotSilentlyAcceptedAsComplete" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.001"/>
+  <testcase name="voiceRecordAndDurationSurviveDataRoundTrip" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="sseTokensAppearBeforeStreamFinishesAndReasoningIsHidden" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="oldMessagesWithoutAudioFieldsRemainReadable" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.001"/>
+  <testcase name="sseErrorCannotBeDisplayedAsAnswer" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="finishReasonSupportsProvidersThatCloseWithoutDoneSentinel" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="interruptedTranscriptionRestoresAsRetryableWithoutDroppingRecording" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="emptyTranscriptionDoesNotMarkVoiceAsComplete" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <testcase name="transcriptionAttachesTextWithoutDiscardingOriginalAudio" classname="com.speakpen.app.VoiceAndStreamingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

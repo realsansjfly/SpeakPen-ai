@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.ServicePairingTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.005">
+  <properties/>
+  <testcase name="rejectsWebsiteUrlWithEmbeddedCredentials" classname="com.speakpen.app.ServicePairingTest" time="0.002"/>
+  <testcase name="copiedWebsiteEntryWorksWhenBrowserDoesNotLaunchApp" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsQueryParametersInAddress" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsMissingApiPrefix" classname="com.speakpen.app.ServicePairingTest" time="0.001"/>
+  <testcase name="rejectsCleartextService" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsNonServiceLinks" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="validLinkCarriesOnlyServiceConnection" classname="com.speakpen.app.ServicePairingTest" time="0.002"/>
+  <testcase name="rejectsProviderKeyAsPairingToken" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsDuplicatePairingParameters" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsUnpairedWebsiteLink" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <testcase name="rejectsPasswordInsideServiceAddress" classname="com.speakpen.app.ServicePairingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

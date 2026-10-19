@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createTunnelLookup,parsePublicIpv4 } from '../../scripts/tunnel-network.mjs';
+const nxdomain=Object.assign(new Error('unknown'),{code:'ENOTFOUND'});
+const records={Status:0,Answer:[{type:1,data:'104.16.231.132'},{type:1,data:'104.16.230.132'}]};
+function query(lookup,host,options={all:true}){return new Promise((resolve,reject)=>lookup(host,options,(error,addresses,family)=>error?reject(error):resolve({addresses,family})));}
+test('existing system DNS answers are unchanged',async()=>{let fallback=false;const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(null,[{address:'104.16.230.132',family:4}]),resolveJson:async()=>{fallback=true;return records;}});assert.deepEqual((await query(lookup,'valid.trycloudflare.com')).addresses,[{address:'104.16.230.132',family:4}]);assert.equal(fallback,false);});
+test('tunnel DNS NXDOMAIN uses encrypted resolver when system DNS fails',async()=>{const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(nxdomain),resolveJson:async()=>records});assert.equal((await query(lookup,'valid.trycloudflare.com')).addresses.length,2);});
+test('fallback also handles the single-address lookup callback shape',async()=>{const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(nxdomain),resolveJson:async()=>records});assert.deepEqual(await query(lookup,'valid.trycloudflare.com',{}),{addresses:'104.16.231.132',family:4});});
+test('unrelated domains never use this fallback',async()=>{let called=false;const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(nxdomain),resolveJson:async()=>{called=true;return records;}});await assert.rejects(query(lookup,'provider.example'));assert.equal(called,false);});
+test('expired domains are not revived using hardcoded addresses',async()=>{const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(nxdomain),resolveJson:async()=>({Status:3})});await assert.rejects(query(lookup,'expired.trycloudflare.com'));});
+test('resolver failure returns the original system DNS error',async()=>{const lookup=createTunnelLookup({systemLookup:(h,o,cb)=>cb(nxdomain),resolveJson:async()=>{throw Error('offline');}});await assert.rejects(query(lookup,'valid.trycloudflare.com'),error=>error===nxdomain);});
+test('private, malformed and non-A answers cannot become service addresses',()=>{assert.deepEqual(parsePublicIpv4({Status:0,Answer:[{type:1,data:'127.0.0.1'},{type:1,data:'10.1.2.3'},{type:1,data:'192.168.1.4'},{type:1,data:'169.254.1.1'},{type:1,data:'100.64.0.1'},{type:1,data:'172.16.0.1'},{type:1,data:'host.example'},{type:28,data:'::1'},{type:1,data:'104.16.231.132'}]}),['104.16.231.132']);});

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.TunnelDnsTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.004">
+  <properties/>
+  <testcase name="onlyPublicNumericARecordsAreAccepted" classname="com.speakpen.app.TunnelDnsTest" time="0.001"/>
+  <testcase name="expiredAddressIsNotReplacedWithHardcodedIp" classname="com.speakpen.app.TunnelDnsTest" time="0.001"/>
+  <testcase name="resolverFailureReturnsOriginalErrorWithoutLeakingResponse" classname="com.speakpen.app.TunnelDnsTest" time="0.0"/>
+  <testcase name="unrelatedProviderDomainsNeverUseFallback" classname="com.speakpen.app.TunnelDnsTest" time="0.001"/>
+  <testcase name="failedTunnelDnsCanUseVerifiedPublicIpv4Answers" classname="com.speakpen.app.TunnelDnsTest" time="0.0"/>
+  <testcase name="systemDnsIsAlwaysPreferred" classname="com.speakpen.app.TunnelDnsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

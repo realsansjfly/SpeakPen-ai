@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.speakpen.app.ApiProtocolTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-10-19T08:31:43" hostname="DESKTOP-PAG2D8K" time="0.024">
+  <properties/>
+  <testcase name="readsStringAndTypedTextParts" classname="com.speakpen.app.ApiProtocolTest" time="0.003"/>
+  <testcase name="emptyReplyIsNotReportedAsSuccess" classname="com.speakpen.app.ApiProtocolTest" time="0.001"/>
+  <testcase name="transcriptionDoesNotSilentlyCorrectLearnerGrammar" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="rejectsCleartextApiCredentials" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="malformedSummaryDoesNotCreateLibraryEntries" classname="com.speakpen.app.ApiProtocolTest" time="0.001"/>
+  <testcase name="rejectsEmbeddedPassword" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="summaryAcceptsJsonFenceAndSkipsEmptyOrDuplicateCandidates" classname="com.speakpen.app.ApiProtocolTest" time="0.002"/>
+  <testcase name="escapesTranscriptWithoutChangingLearnerEnglish" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="baseAndCompleteEndpointsDoNotDuplicatePaths" classname="com.speakpen.app.ApiProtocolTest" time="0.001"/>
+  <testcase name="emptyTranscriptionAllowsRetry" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="summaryEvidenceComesFromActualUserMarkers" classname="com.speakpen.app.ApiProtocolTest" time="0.003"/>
+  <testcase name="reviewPromptIncludesSelectedLearningTargets" classname="com.speakpen.app.ApiProtocolTest" time="0.011"/>
+  <testcase name="bilingualHelpIsExplicitAndDoesNotRewritePriorTurns" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <testcase name="refusesBlankModel" classname="com.speakpen.app.ApiProtocolTest" time="0.001"/>
+  <testcase name="rejectsQueryCredentials" classname="com.speakpen.app.ApiProtocolTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
