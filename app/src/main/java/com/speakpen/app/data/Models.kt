@@ -17,6 +17,7 @@ data class AppSettings(
     val demoMode: Boolean = false,
     val voiceReplies: Boolean = true,
     val serviceUrl: String = "", val serviceAccessToken: String = "",
+    val conversationDefaults: ConversationConfig = ConversationConfig(),
 )
 data class ChatMessage(
     val id: String = newId(), val role: String, val text: String,
@@ -26,6 +27,8 @@ data class ChatMessage(
     val transcriptState: TranscriptState = TranscriptState.NONE,
     val hintKind: HintKind? = null, val sourceMessageId: String = "",
     val hintContextIds: List<String> = emptyList(), val revision: Int = 0,
+    val generationConfig: ConversationConfig? = null, val configRevision: Int = 0,
+    val hintCollapsed: Boolean = false,
 ) {
     val isHint: Boolean get() = role == "hint"
     val isConversation: Boolean get() = role == "user" || role == "assistant"
@@ -34,6 +37,7 @@ data class ChatSession(
     val id: String = newId(), val title: String = "新的练习", val mode: ConversationMode = ConversationMode.FREE,
     val targetIds: List<String> = emptyList(), val messages: List<ChatMessage> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(), val updatedAt: Long = createdAt,
+    val config: ConversationConfig = ConversationConfig(), val configRevision: Int = 0,
 )
 data class ReviewItem(
     val id: String = newId(), val kind: ReviewKind = ReviewKind.PHRASE,
@@ -55,7 +59,7 @@ object ReviewSchedule {
 
 object DataJson {
     fun write(data: SavedData): String = JSONObject().apply {
-        put("version", 1); put("currentSessionId", data.currentSessionId)
+        put("version", 2); put("currentSessionId", data.currentSessionId)
         put("sessions", JSONArray().apply { data.sessions.forEach { put(sessionToJson(it)) } })
         put("library", JSONArray().apply { data.library.forEach { put(itemToJson(it)) } })
     }.toString()
@@ -81,6 +85,7 @@ object DataJson {
     )
     private fun sessionToJson(session: ChatSession): JSONObject = JSONObject().apply {
         put("id", session.id); put("title", session.title); put("mode", session.mode.name)
+        put("config", ConversationConfigJson.write(session.config)); put("configRevision", session.configRevision)
         put("targetIds", JSONArray(session.targetIds)); put("createdAt", session.createdAt); put("updatedAt", session.updatedAt)
         put("messages", JSONArray().apply { session.messages.forEach { message -> put(JSONObject().apply {
             put("id", message.id); put("role", message.role); put("text", message.text)
@@ -88,11 +93,15 @@ object DataJson {
             put("markedStuck", message.markedStuck); put("createdAt", message.createdAt)
             put("hintKind", message.hintKind?.name ?: ""); put("sourceMessageId", message.sourceMessageId)
             put("hintContextIds", JSONArray(message.hintContextIds)); put("revision", message.revision)
+            message.generationConfig?.let { put("generationConfig", ConversationConfigJson.write(it)) }
+            put("configRevision", message.configRevision)
+            put("hintCollapsed", message.hintCollapsed)
             put("audioFileName", message.audioFileName); put("audioDurationMs", message.audioDurationMs); put("transcriptState", message.transcriptState.name)
         }) } })
     }
     private fun sessionFromJson(json: JSONObject): ChatSession = ChatSession(
         id = json.getString("id"), title = json.optString("title", "练习"), mode = enumOr(json.optString("mode"), ConversationMode.FREE),
+        config = ConversationConfigJson.read(json.optJSONObject("config")), configRevision = json.optInt("configRevision").coerceAtLeast(0),
         targetIds = json.optJSONArray("targetIds")?.let { array -> (0 until array.length()).map { array.getString(it) } } ?: emptyList(),
         messages = objects(json.optJSONArray("messages")).map { message -> ChatMessage(
             id = message.getString("id"), role = message.getString("role"), text = message.getString("text"),
@@ -102,6 +111,9 @@ object DataJson {
             transcriptState = enumOr(message.optString("transcriptState"), TranscriptState.NONE),
             hintKind = HintKind.entries.firstOrNull { it.name == message.optString("hintKind") },
             sourceMessageId = message.optString("sourceMessageId"), revision = message.optInt("revision"),
+            generationConfig = message.optJSONObject("generationConfig")?.let(ConversationConfigJson::read),
+            configRevision = message.optInt("configRevision").coerceAtLeast(0),
+            hintCollapsed = message.optBoolean("hintCollapsed"),
             hintContextIds = message.optJSONArray("hintContextIds")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
         ) }, createdAt = json.optLong("createdAt"), updatedAt = json.optLong("updatedAt"),
     )

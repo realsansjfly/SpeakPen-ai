@@ -13,6 +13,8 @@ import org.json.JSONObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+data class ServiceStatus(val label: String, val conversationControlsSupported: Boolean)
+
 class AiClient(private val client: OkHttpClient = defaultClient()) {
     companion object {
         private fun defaultClient() = OkHttpClient.Builder().dns(TunnelDns()).connectTimeout(20, TimeUnit.SECONDS)
@@ -20,7 +22,8 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
             .followRedirects(false).followSslRedirects(false).build()
     }
 
-    suspend fun status(config: ApiConfig): String = suspendCancellableCoroutine { continuation ->
+    suspend fun status(config: ApiConfig): String = statusInfo(config).label
+    suspend fun statusInfo(config: ApiConfig): ServiceStatus = suspendCancellableCoroutine { continuation ->
         val request = Request.Builder().url(ApiProtocol.endpoint(config.baseUrl, "status"))
             .header("Authorization", "Bearer ${config.apiKey}").get().build()
         val call = client.newCall(request)
@@ -33,23 +36,24 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
                         check(it.isSuccessful) { "服务不可用。" }
                         val json = JSONObject(it.body?.string().orEmpty())
                         check(json.optBoolean("ready")) { "服务未开通。" }
-                        "已连接 · 千问对话与语音识别"
+                        val supported = json.optInt("conversationControlsVersion") >= 1
+                        ServiceStatus(if (supported) "已连接 · 千问对话与语音识别" else "已连接 · 本机服务需更新后才能使用高级参数", supported)
                     }
                     if (continuation.isActive) continuation.resume(result)
                 } catch (error: Exception) { if (continuation.isActive) continuation.resumeWithException(error) }
             }
         })
     }
-    suspend fun chat(config: ApiConfig, messages: List<Pair<String, String>>, purpose: String = "chat"): String {
+    suspend fun chat(config: ApiConfig, messages: List<Pair<String, String>>, purpose: String = "chat", advanced: AdvancedSettings? = null): String {
         ApiProtocol.requireModel(config)
-        val body = JSONObject(ApiProtocol.chatBody(config.model, messages)).apply { if (config.model == "managed") put("purpose", purpose) }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val body = JSONObject(ApiProtocol.chatBody(config.model, messages, if (purpose == "chat") advanced else null)).apply { if (config.model == "managed") put("purpose", purpose) }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         return ApiProtocol.chatText(request(config, "chat/completions", body))
     }
     suspend fun learning(config: ApiConfig, messages: List<Pair<String, String>>): String = chat(config, messages, "learning")
 
-    suspend fun streamChat(config: ApiConfig, messages: List<Pair<String, String>>, onText: (String) -> Unit): String {
+    suspend fun streamChat(config: ApiConfig, messages: List<Pair<String, String>>, advanced: AdvancedSettings? = null, onText: (String) -> Unit): String {
         ApiProtocol.requireModel(config)
-        val body = JSONObject(ApiProtocol.chatBody(config.model, messages)).put("stream", true).toString()
+        val body = JSONObject(ApiProtocol.chatBody(config.model, messages, advanced)).put("stream", true).toString()
             .toRequestBody("application/json; charset=utf-8".toMediaType())
         val builder = Request.Builder().url(ApiProtocol.endpoint(config.baseUrl, "chat/completions")).post(body).header("Accept", "text/event-stream")
         if (config.apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${config.apiKey.trim()}")
@@ -85,7 +89,7 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
     }
     private fun serviceError(code: Int) = IOException(when (code) {
         401, 403 -> "服务配对已失效，请重新打开电脑的连接入口。"
-        503 -> "AI 服务尚未开通，可先在偏好中体验示例。"
+        503 -> "AI 服务尚未开通，可先在设置中体验示例。"
         429 -> "服务暂时繁忙，请稍后重试。"
         502, 504 -> "AI 服务暂时没有响应，消息已保留，请重试。"
         else -> "服务请求失败（$code），请重试。"

@@ -18,18 +18,20 @@ class LocalStore(context: Context) {
         AppSettings(autoSpeak = json.optBoolean("autoSpeak", true),
             demoMode = json.optBoolean("demoModeV2", false) && (json.optInt("liveServiceVersion") >= 1 || BuildConfig.SERVICE_BASE_URL.isBlank()),
             voiceReplies = json.optBoolean("voiceReplies", true), serviceUrl = json.optString("serviceUrl"),
-            serviceAccessToken = json.optString("serviceAccessToken"))
+            serviceAccessToken = json.optString("serviceAccessToken"),
+            conversationDefaults = ConversationConfigJson.read(json.optJSONObject("conversationDefaults")))
     } catch (_: Exception) {
-        loadWarning = "偏好读取失败，可重新设置；学习记录未删除。"
+        loadWarning = "设置读取失败，可重新设置；学习记录未删除。"
         AppSettings()
     }
     fun saveSettings(settings: AppSettings) {
         val json = JSONObject().apply {
             put("liveServiceVersion", 1); put("serviceUrl", settings.serviceUrl); put("serviceAccessToken", settings.serviceAccessToken)
             put("autoSpeak", settings.autoSpeak); put("demoModeV2", settings.demoMode); put("voiceReplies", settings.voiceReplies)
+            put("conversationDefaults", ConversationConfigJson.write(settings.conversationDefaults))
         }
         // Replacing legacy settings removes obsolete encrypted provider credentials.
-        check(prefs.edit().putString("settings", json.toString()).commit()) { "偏好保存失败，请重试。" }
+        check(prefs.edit().putString("settings", json.toString()).commit()) { "设置保存失败，请重试。" }
     }
     fun readData(): SavedData = try {
         if (!dataFile.baseFile.exists()) SavedData() else DataJson.read(dataFile.openRead().bufferedReader().use { it.readText() })

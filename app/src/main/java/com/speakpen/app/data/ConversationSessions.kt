@@ -2,16 +2,17 @@ package com.speakpen.app.data
 
 /** Only sessions with messages are history; keep at most one active empty workspace. */
 object ConversationSessions {
-    fun start(data: SavedData, mode: ConversationMode, targetIds: List<String> = emptyList()): SavedData {
+    fun start(data: SavedData, mode: ConversationMode, targetIds: List<String> = emptyList(), config: ConversationConfig = ConversationConfig()): SavedData {
         val normalized = normalize(data)
         val current = normalized.sessions.firstOrNull { it.id == normalized.currentSessionId }
         val title = if (mode == ConversationMode.REVIEW) "目标复习" else "新的练习"
         val targets = targetIds.take(5)
         if (current != null && current.messages.isEmpty()) {
-            val reused = current.copy(mode = mode, targetIds = targets, title = title)
+            val reused = current.copy(mode = mode, targetIds = targets, title = title, config = config,
+                configRevision = if (current.config == config) current.configRevision else current.configRevision + 1)
             return normalized.copy(sessions = normalized.sessions.map { if (it.id == current.id) reused else it })
         }
-        val session = ChatSession(mode = mode, targetIds = targets, title = title)
+        val session = ChatSession(mode = mode, targetIds = targets, title = title, config = config)
         return normalized.copy(sessions = listOf(session) + normalized.sessions, currentSessionId = session.id)
     }
     fun normalize(data: SavedData): SavedData {

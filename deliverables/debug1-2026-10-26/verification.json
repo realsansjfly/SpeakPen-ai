@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-26",
+  "batch": "debug1",
+  "applicationId": "com.speakpen.app",
+  "versionCode": 9,
+  "versionName": "0.6.0-dev02",
+  "apk": "SpeakPen-0.6.0-dev02-debug.apk",
+  "bytes": 17259351,
+  "sha256": "6d37bce41704b83ea62d310525c047d23db08ae5276e7dbf0c2891e2ed6bdfdb",
+  "certificateSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "certificateMatches040AndDev01": true,
+  "unitTests": {
+    "tests": 102,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "nodeTests": {
+    "tests": 46,
+    "failures": 0
+  },
+  "sourceMatchesBuild": true,
+  "sourceFilesChecked": 52,
+  "knownCredentialsAbsent": true,
+  "embeddedConnection": false,
+  "phoneTested": false,
+  "runningServiceRestarted": false,
+  "liveSamples": [
+    {
+      "name": "coffee-english-context",
+      "pass": true,
+      "elapsedMs": 5260,
+      "checks": {
+        "chineseExplanation": true,
+        "eachItemHasChinese": true,
+        "eachItemHasEnglishExample": true,
+        "eachExampleHasChineseTranslation": true,
+        "completed": true
+      }
+    },
+    {
+      "name": "interview-english-only-instruction",
+      "pass": true,
+      "elapsedMs": 4202,
+      "checks": {
+        "chineseExplanation": true,
+        "eachItemHasChinese": true,
+        "eachItemHasEnglishExample": true,
+        "eachExampleHasChineseTranslation": true,
+        "completed": true
+      }
+    },
+    {
+      "name": "travel-english-context",
+      "pass": true,
+      "elapsedMs": 3108,
+      "checks": {
+        "chineseExplanation": true,
+        "eachItemHasChinese": true,
+        "eachItemHasEnglishExample": true,
+        "eachExampleHasChineseTranslation": true,
+        "completed": true
+      }
+    }
+  ],
+  "network": {
+    "localServiceStatus": 200,
+    "publicConnectionStatus": 200,
+    "conversationControlsVersion": 1,
+    "phoneConnected": false
+  }
+}

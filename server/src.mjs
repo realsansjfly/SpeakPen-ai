@@ -52,12 +52,24 @@ export function chatPayload(input, provider, stream = input.stream === true) {
     return { role: message.role, content: message.content };
   });
   if (total > 70000) throw new Error('Context too large');
-  const payload = { model: provider.chat, messages, stream, max_tokens: input.purpose === 'summary' ? 1600 : input.purpose === 'learning' ? 700 : 240 };
+  const auxiliary = ['summary', 'learning'].includes(input.purpose);
+  let chatLimit = 240;
+  if (!auxiliary && input.reply_length !== undefined) {
+    const limits = { short: 120, standard: 240, extended: 400 };
+    if (typeof input.reply_length !== 'string' || !Object.hasOwn(limits, input.reply_length)) throw new Error('Invalid reply length');
+    chatLimit = limits[input.reply_length];
+  }
+  if (!auxiliary && input.temperature !== undefined &&
+      (typeof input.temperature !== 'number' || !Number.isFinite(input.temperature) || input.temperature < 0 || input.temperature > 1)) {
+    throw new Error('Invalid temperature');
+  }
+  const payload = { model: provider.chat, messages, stream, max_tokens: input.purpose === 'summary' ? 1600 : input.purpose === 'learning' ? 700 : chatLimit };
+  if (!auxiliary && input.temperature !== undefined) payload.temperature = input.temperature;
   if (['siliconflow', 'dashscope'].includes(provider.name)) payload.enable_thinking = false;
   if (input.purpose === 'summary' && provider.name === 'dashscope') payload.response_format = { type: 'json_object' };
   if (provider.name === 'groq' && provider.chat.startsWith('openai/gpt-oss')) {
     payload.reasoning_effort = 'low'; payload.include_reasoning = false;
-    delete payload.max_tokens; payload.max_completion_tokens = input.purpose === 'summary' ? 2200 : input.purpose === 'learning' ? 1200 : 700;
+    delete payload.max_tokens; payload.max_completion_tokens = input.purpose === 'summary' ? 2200 : input.purpose === 'learning' ? 1200 : input.reply_length === undefined ? 700 : chatLimit;
   }
   return payload;
 }
@@ -108,7 +120,7 @@ export function createService({ env = process.env, fetchImpl = fetch, now = Date
     if (!authorized(request, env.SERVICE_ACCESS_TOKEN)) return problem(res, 401, 'unauthorized', 'Service authorization required.');
     if (request.method === 'GET' && path === '/v1/status') return json(res, 200, {
       service: 'SpeakPen', instanceId, ready: upstreams.length > 0, chatModel: upstreams[0]?.chat, asrModel: upstreams[0]?.asr,
-      streaming: env.DISABLE_STREAMING !== 'true', version: '0.4.0', ...metrics,
+      streaming: env.DISABLE_STREAMING !== 'true', version: '0.4.0', conversationControlsVersion: 1, ...metrics,
     });
     if (request.method === 'GET' && path === '/app.apk') {
       const file = resolve(env.APK_PATH || join(root, '../deliverables/SpeakPen-0.4.0-debug.apk'));

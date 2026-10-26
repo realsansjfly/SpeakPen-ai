@@ -60,7 +60,7 @@ class LearningActionsTest {
     }
     @Test fun hintRegenerationKeepsTypeSourceAndContextAnchor() {
         val original = sample()
-        val updated = LearningMessages.replace(original, "h1", "New phrase bank")
+        val updated = LearningMessages.replace(original, "h1", "New phrase bank · 新语料")
         assertEquals(HintKind.TOPIC, updated.messages[2].hintKind)
         assertEquals(listOf("u1", "a1"), updated.messages[2].hintContextIds)
         assertFalse(CoachPrompts.history(updated).toString().contains("New phrase bank"))

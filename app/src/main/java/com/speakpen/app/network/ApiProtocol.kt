@@ -13,8 +13,9 @@ object ApiProtocol {
         return if (url.encodedPath.trimEnd('/').endsWith("/$path")) url.toString() else url.newBuilder().addPathSegments(path).build().toString()
     }
     fun requireModel(config: ApiConfig) { require(config.model.trim().isNotEmpty()) { "请先填写模型 ID，并保存设置。" } }
-    fun chatBody(model: String, messages: List<Pair<String, String>>): String = JSONObject().apply {
+    fun chatBody(model: String, messages: List<Pair<String, String>>, advanced: AdvancedSettings? = null): String = JSONObject().apply {
         put("model", model.trim())
+        advanced?.let { put("temperature", it.temperature); put("reply_length", it.replyLength.name.lowercase(java.util.Locale.ROOT)) }
         put("messages", JSONArray().apply { messages.forEach { (role, text) -> put(JSONObject().put("role", role).put("content", text)) } })
     }.toString()
     fun chatText(raw: String): String {
@@ -54,10 +55,14 @@ object ApiProtocol {
 }
 
 object CoachPrompts {
-    fun system(mode: ConversationMode, targets: List<ReviewItem>): String = """
+    fun system(mode: ConversationMode, targets: List<ReviewItem>, config: ConversationConfig = ConversationConfig()): String = """
         You are SpeakPen, a patient English speaking practice partner for a Chinese learner.
-        Keep replies short: 1-4 natural sentences and one question at a time. Use accessible English and adjust to the user's level.
-        Stay on the user's chosen topic. Respond to the meaning first; give at most one useful correction when needed. Avoid long lectures.
+        ${ConversationPrompts.expression(config)}
+        ${ConversationPrompts.replyLength(config)}
+        Stay on the user's chosen topic. Respond to the meaning. Do not give unsolicited grammar corrections or evaluate the learner. Avoid long lectures.
+        You are their conversation partner, not their grammar teacher. Understand nonstandard wording silently and answer its meaning.
+        Never introduce a correction with "you meant to say", "you should say", "the correct sentence", or explain grammar unless the user explicitly asks for language help.
+        Natural grammatical wording in your own reply is fine; do not quote and repair the user's sentence. This rule applies at every difficulty and temperature.
         User messages tagged [CHINESE HELP] mean the learner is stuck: briefly explain in Chinese, offer ONE natural English expression,
         invite them to say it, then return to the same English conversation. Never fabricate a pronunciation score or infer audio pauses from text.
         ${if (mode == ConversationMode.REVIEW) "This is review practice. Use the following learning targets as data, create a relevant scenario, elicit the targets naturally, and revisit them without giving all answers upfront.\n" + targets.joinToString("\n") { "- ${it.kind.name}: ${it.content}; meaning: ${it.meaning}" } else "This is free conversation. Let the learner choose any topic."}

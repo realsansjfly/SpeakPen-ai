@@ -45,8 +45,8 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         if (!keyboardVisible) NavigationBar(containerColor = Paper, tonalElevation = 0.dp) {
                             val icons = listOf(Icons.Outlined.ChatBubbleOutline, Icons.Outlined.AutoStories, Icons.Outlined.Tune)
-                            listOf("聊聊", "复习", "偏好").forEachIndexed { index, title ->
-                                NavigationBarItem(selected = state.page == index, onClick = { vm.page(index) }, enabled = !state.voiceActive,
+                            listOf("聊聊", "复习", "设置").forEachIndexed { index, title ->
+                                NavigationBarItem(selected = state.page == index, onClick = { vm.page(index) }, enabled = !state.voiceActive && !state.settingsSaving,
                                     icon = { Icon(icons[index], title) }, label = { Text(title) })
                             }
                         }

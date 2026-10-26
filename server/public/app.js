@@ -1,4 +1,4 @@
-import {isConversation,conversationMessages,extractionPrompts,optimizationPrompts,topicPrompts,replaceMessage} from '/learning.js';
+import {isConversation,conversationMessages,extractionPrompts,optimizationPrompts,topicPrompts,replaceMessage,bilingualTopicText} from '/learning.js';
 'use strict';
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('speakpen-token') || '';
@@ -196,7 +196,7 @@ $('rewrite-message').onclick=async()=>{const selected=selectedBlock;$('message-a
  }
  save();render();
  }catch(error){feedback(error.message);}finally{setBusy(false);}};
-$('topic-expressions').onclick=async()=>{if(busy||recording)return;const context=conversationMessages(messages).slice(-12);if(!context.length)return feedback('先开启一个话题。');setBusy(true);try{const text=await completion(topicPrompts(context));messages.push({id:crypto.randomUUID(),role:'hint',hintKind:'TOPIC',text,hintContextIds:context.map(x=>x.id)});save();render();}catch(error){feedback(error.message);}finally{setBusy(false);}};
+$('topic-expressions').onclick=async()=>{if(busy||recording)return;const context=conversationMessages(messages).slice(-12);if(!context.length)return feedback('先开启一个话题。');setBusy(true);try{const text=bilingualTopicText(await completion(topicPrompts(context)));messages.push({id:crypto.randomUUID(),role:'hint',hintKind:'TOPIC',text,hintContextIds:context.map(x=>x.id)});save();render();}catch(error){feedback(error.message);}finally{setBusy(false);}};
 $('save-candidates').onclick=()=>{let count=0;$('candidate-list').querySelectorAll('input:checked').forEach(check=>{const item=candidates[Number(check.dataset.index)];if(!item.content?.trim())return;if(!library.some(x=>x.content.toLowerCase()===item.content.toLowerCase())){library.push({...item,id:crypto.randomUUID()});count++;}});save();$('candidates').close();feedback(`已收藏 ${count} 项表达。`);};
 $('close-candidates').onclick=()=>$('candidates').close();
 $('connect-button').onclick=()=>{try{const value=new URL($('connection').value);const candidate=new URLSearchParams(value.hash.slice(1)).get('token');if(!candidate?.match(/^[a-f0-9]{64}$/))throw Error();token=candidate;sessionStorage.setItem('speakpen-token',token);$('connection').value='';checkStatus();}catch{feedback('请粘贴电脑生成的完整连接入口。');}};

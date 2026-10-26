@@ -1,6 +1,9 @@
 param(
     [string]$JavaHome = $env:JAVA_HOME,
-    [switch]$Offline
+    [switch]$Offline,
+    [string]$OutputDirectory = '',
+    [string]$ApkName = 'SpeakPen-0.6.0-dev02-debug.apk',
+    [switch]$Unpaired
 )
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path -Parent $PSScriptRoot
@@ -25,7 +28,10 @@ $oldServiceUrl = $env:SPEAKPEN_BACKEND_URL
 $oldServiceToken = $env:SPEAKPEN_SERVICE_TOKEN
 try {
     $connectionPath = Join-Path $workspacePath '.local\connection.json'
-    if (Test-Path -LiteralPath $connectionPath) {
+    if ($Unpaired) {
+        $env:SPEAKPEN_BACKEND_URL = ''
+        $env:SPEAKPEN_SERVICE_TOKEN = ''
+    } elseif (Test-Path -LiteralPath $connectionPath) {
         $connection = Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json
         $env:SPEAKPEN_BACKEND_URL = $connection.baseUrl
         $env:SPEAKPEN_SERVICE_TOKEN = $connection.accessToken
@@ -63,12 +69,20 @@ try {
     if ($Offline) { $arguments += '--offline' }
     & (Join-Path $buildPath 'gradlew.bat') @arguments
     if ($LASTEXITCODE -ne 0) { throw '构建或验证失败，请查看上方诊断。' }
-    $deliveryDirectory = Join-Path $workspacePath 'deliverables'
+    $deliveryDirectory = if ($OutputDirectory) { $OutputDirectory } else { Join-Path $workspacePath 'deliverables' }
     New-Item -ItemType Directory -Path $deliveryDirectory -Force | Out-Null
-    $deliveryPath = Join-Path $deliveryDirectory 'SpeakPen-0.4.0-debug.apk'
+    $deliveryPath = Join-Path $deliveryDirectory $ApkName
     Copy-Item -LiteralPath (Join-Path $buildPath 'app\build\outputs\apk\debug\app-debug.apk') -Destination $deliveryPath -Force
     Copy-TreeFiles (Join-Path $buildPath 'app\build\reports') (Join-Path $deliveryDirectory 'reports')
     Copy-TreeFiles (Join-Path $buildPath 'app\build\test-results\testDebugUnitTest') (Join-Path $deliveryDirectory 'test-results')
+    $fixturePath = Join-Path $buildPath 'app\build\outputs\conversation-config-live-requests.json'
+    if (Test-Path -LiteralPath $fixturePath) {
+        Copy-Item -LiteralPath $fixturePath -Destination (Join-Path $deliveryDirectory 'conversation-config-live-requests.json') -Force
+    }
+    $topicFixturePath = Join-Path $buildPath 'app\build\outputs\debug-topic-live-requests.json'
+    if (Test-Path -LiteralPath $topicFixturePath) {
+        Copy-Item -LiteralPath $topicFixturePath -Destination (Join-Path $deliveryDirectory 'debug-topic-live-requests.json') -Force
+    }
     Write-Output "APK: $deliveryPath"
 } finally {
     $env:JAVA_HOME = $oldJavaHome

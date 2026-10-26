@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-26",
+  "batch": 1,
+  "applicationId": "com.speakpen.app",
+  "versionCode": 8,
+  "versionName": "0.6.0-dev01",
+  "apk": "SpeakPen-0.6.0-dev01-debug.apk",
+  "bytes": 17226583,
+  "sha256": "447fb9210cd7a9ce6a6efe084f0fbe9832c1ffdc9892b9335100823eaf9341ac",
+  "certificateSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "certificateMatches040": true,
+  "unitTests": {
+    "tests": 91,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "nodeTests": {
+    "tests": 44,
+    "failures": 0
+  },
+  "sourceMatchesBuild": true,
+  "sourceFilesChecked": 49,
+  "knownCredentialsAbsent": true,
+  "embeddedConnection": false,
+  "phoneTested": false,
+  "runningServiceRestarted": false,
+  "liveSamples": [
+    {
+      "name": "SIMPLE",
+      "pass": true,
+      "elapsedMs": 702,
+      "checks": {
+        "noUnsolicitedCorrection": true
+      }
+    },
+    {
+      "name": "DAILY",
+      "pass": true,
+      "elapsedMs": 546,
+      "checks": {
+        "noUnsolicitedCorrection": true
+      }
+    },
+    {
+      "name": "DEEP",
+      "pass": true,
+      "elapsedMs": 802,
+      "checks": {
+        "noUnsolicitedCorrection": true
+      }
+    },
+    {
+      "name": "temperature-zero-short",
+      "pass": true,
+      "elapsedMs": 632,
+      "checks": {
+        "noUnsolicitedCorrection": true,
+        "shortSentences": true
+      }
+    },
+    {
+      "name": "temperature-one-extended",
+      "pass": true,
+      "elapsedMs": 600,
+      "checks": {
+        "noUnsolicitedCorrection": true
+      }
+    },
+    {
+      "name": "optimize-simple",
+      "pass": true,
+      "elapsedMs": 1826,
+      "checks": {
+        "chineseExplanation": true
+      }
+    },
+    {
+      "name": "topic-simple",
+      "pass": true,
+      "elapsedMs": 2366,
+      "checks": {
+        "chineseExplanation": true
+      }
+    }
+  ],
+  "network": {
+    "localServiceStatus": 200,
+    "publicConnection": "ENOTFOUND",
+    "phoneConnected": false
+  }
+}

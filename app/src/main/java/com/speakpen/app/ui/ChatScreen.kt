@@ -35,9 +35,14 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
     var actionMessage by remember { mutableStateOf<ChatMessage?>(null) }
     val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
-    LaunchedEffect(session.id, session.messages.size, state.busy) {
-        val count = session.messages.size + if (state.busy != null || state.streamingText.isNotBlank()) 1 else 0
-        if (count > 0) listState.animateScrollToItem(count - 1)
+    val displayMessages = remember(session.messages) { LearningMessages.display(session.messages) }
+    LaunchedEffect(session.id, session.messages.size, state.busy, state.scrollToMessageId) {
+        val anchor = state.scrollToMessageId ?: state.operationAnchorId
+        val anchoredIndex = displayMessages.indexOfFirst { it.id == anchor }
+        val count = displayMessages.size + if (state.busy != null || state.streamingText.isNotBlank()) 1 else 0
+        if (anchoredIndex >= 0) listState.animateScrollToItem(anchoredIndex)
+        else if (count > 0) listState.animateScrollToItem(count - 1)
+        state.scrollToMessageId?.let(vm::scrollConsumed)
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -45,7 +50,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("开口聊聊", style = MaterialTheme.typography.titleLarge)
-                Text(when { state.settings.demoMode -> "示例体验"; !state.serviceConfigured -> "AI 服务准备中"; !state.serviceOnline -> "正在检查连接 · 可到偏好重新连接"; else -> "已连接 · 你的英语练习伙伴" }, color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text(when { state.settings.demoMode -> "示例体验"; !state.serviceConfigured -> "AI 服务准备中"; !state.serviceOnline -> "正在检查连接 · 可到设置重新连接"; else -> "已连接 · 你的英语练习伙伴" }, color = Muted, style = MaterialTheme.typography.labelSmall)
             }
             IconButton(onClick = { vm.showHistory(true) }, enabled = !locked) { Icon(Icons.Outlined.History, "练习记录") }
             IconButton(onClick = { vm.newSession(session.mode, session.targetIds) }, enabled = !locked) { Icon(Icons.Outlined.AddComment, "新对话") }
@@ -62,6 +67,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
         }
         if (session.mode == ConversationMode.REVIEW) Text("目标 · " + state.library.filter { it.id in session.targetIds }.joinToString(" · ") { it.content },
             Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2)
+        Text("表达难度 · ${session.config.difficulty.label}", Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = Muted)
         HorizontalDivider(color = Line)
         if (session.messages.isEmpty()) {
             Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
@@ -80,7 +86,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             }
         } else {
             LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(session.messages, key = { it.id }) { message ->
+                items(displayMessages, key = { it.id }) { message ->
                     MessageCard(message, state, vm, onEdit = { editing = message }, onLongPress = { actionMessage = message })
                 }
                 if (state.busy != null || state.streamingText.isNotBlank()) item(key = "reply") {
@@ -171,14 +177,17 @@ private fun MessageCard(message: ChatMessage, state: PracticeState, vm: Practice
     if (message.isHint) {
         Column(Modifier.fillMaxWidth().padding(start = 8.dp)) {
             Surface(color = SoftBlue, border = androidx.compose.foundation.BorderStroke(1.dp, Sky.copy(alpha = 0.22f)), shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = onLongPress, onLongClickLabel = "提示操作")) {
+                modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { vm.hintCollapsed(message.id, !message.hintCollapsed) }, onLongClick = onLongPress, onLongClickLabel = "提示操作")) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Icon(Icons.Outlined.Lightbulb, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Text("提示 · ${message.hintKind?.label ?: "学习辅助"}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        Text("提示 · ${message.hintKind?.label ?: "学习辅助"}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        IconButton(onClick = { vm.hintCollapsed(message.id, !message.hintCollapsed) }, modifier = Modifier.size(40.dp)) {
+                            Icon(if (message.hintCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess, if (message.hintCollapsed) "展开提示" else "收起提示")
+                        }
                     }
-                    Text(message.text, style = MaterialTheme.typography.bodyLarge)
-                    Text("仅供参考，不进入对话上下文 · 长按可操作", style = MaterialTheme.typography.labelSmall, color = Muted)
+                    if (!message.hintCollapsed) Text(message.text, style = MaterialTheme.typography.bodyLarge)
+                    Text(if (message.hintCollapsed) "已折叠 · 点击展开，长按可操作" else "仅供参考，不进入对话上下文 · 点击收起，长按可操作", style = MaterialTheme.typography.labelSmall, color = Muted)
                 }
             }
         }
