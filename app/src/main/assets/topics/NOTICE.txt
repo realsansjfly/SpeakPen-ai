@@ -1,0 +1,6 @@
+SpeakPen offline conversation topics
+
+English selection: eecastro/Icebreakers, CC0-1.0.
+Source: https://github.com/eecastro/Icebreakers/tree/e9bbcaa0e89fd7f44f2abd3fdead2e54c3cdb67c
+Original wording preserved; source line recorded per entry. Not a proficiency syllabus.
+Chinese prompts: original SpeakPen content (2026-10-31).

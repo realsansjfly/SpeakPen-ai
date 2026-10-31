@@ -34,25 +34,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Only the draw layer changes each frame; offscreen/recording/playback surfaces remain still. */
-@Composable
-fun ConversationBackdrop(active: Boolean, modifier: Modifier = Modifier) {
-    val phase = remember { Animatable(.35f) }
-    val motion = remember(active) { ValueAnimator.areAnimatorsEnabled() }
-    LaunchedEffect(active, motion) {
-        if (active && motion) phase.animateTo(1f, infiniteRepeatable(tween(24000, easing = LinearEasing), RepeatMode.Reverse))
-        else phase.snapTo(.35f)
-    }
-    Box(modifier.drawBehind {
-        drawRect(Paper)
-        val p = phase.value
-        drawRect(Brush.radialGradient(listOf(SoftGreen.copy(alpha = .78f), Color.Transparent),
-            center = Offset(size.width * (.12f + p * .3f), size.height * (.12f + p * .12f)), radius = size.maxDimension * .85f))
-        drawRect(Brush.radialGradient(listOf(SoftBlue.copy(alpha = .62f), Color.Transparent),
-            center = Offset(size.width * (.95f - p * .2f), size.height * (.7f - p * .15f)), radius = size.maxDimension * .7f))
-    })
-}
-
 @Composable
 private fun LearningSurface(title: String, onClose: () -> Unit, actions: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {

@@ -1,0 +1,58 @@
+
+> speakpen-service@0.4.0 test
+> node --test test/*.test.mjs
+
+✔ existing system DNS answers are unchanged (1.0892ms)
+✔ tunnel DNS NXDOMAIN uses encrypted resolver when system DNS fails (0.4874ms)
+✔ fallback also handles the single-address lookup callback shape (0.1612ms)
+✔ unrelated domains never use this fallback (0.2578ms)
+✔ expired domains are not revived using hardcoded addresses (0.1526ms)
+✔ resolver failure returns the original system DNS error (0.2868ms)
+✔ private, malformed and non-A answers cannot become service addresses (2.6832ms)
+✔ old clients retain their chat budget and no forced temperature (0.9867ms)
+✔ chat length and temperature are explicitly mapped to operator budgets (0.3063ms)
+✔ invalid chat parameters cannot be coerced or escape the whitelist (0.458ms)
+✔ summary and learning ignore conversation generation settings (0.1959ms)
+✔ fallback providers enforce the same length whitelist (0.202ms)
+✔ HTTP JSON fallback forwards the allowed parameters and rejects invalid ones before inference (43.9693ms)
+✔ Alibaba is selected ahead of optional alternatives (0.6746ms)
+✔ Alibaba chat disables reasoning and summary requests valid JSON (0.5968ms)
+✔ Qwen ASR uses input_audio base64 instead of unsupported multipart endpoint (0.3655ms)
+✔ Chinese help allows automatic recognition of mixed English speech (0.2189ms)
+✔ ASR completion is normalized to the Android text contract (38.8667ms)
+✔ temporary tunnel mode returns JSON when app requests streaming (7.3992ms)
+✔ service status is protected and never exposes provider or pairing secret (6.2484ms)
+✔ APK download requires local service authorization (4.9898ms)
+✔ cloud speech is normalized to audio and signed download gets no provider key (8.2339ms)
+✔ rejects provider audio URLs pointing to private or unrelated hosts (4.2368ms)
+✔ rejects empty or excessively long speech input (5.3043ms)
+✔ normal model history has no hint roles or private hint text (0.983ms)
+✔ recognizing a block sends only its own text and ID (0.1462ms)
+✔ optimizing uses original intent and only preceding actual turns (0.1645ms)
+✔ topic phrase bank filters previous learning hints (0.1229ms)
+✔ regeneration preserves later dialogue and changes only selected revision (0.1549ms)
+✔ hint regeneration retains hint identity and source metadata (0.2329ms)
+✔ original user wording cannot be regenerated or blanked (0.2182ms)
+✔ learning output budget allows phrase banks without forcing JSON (0.2665ms)
+✔ health reports inactive honestly and never leaks credentials (40.9774ms)
+✔ operator selects model; client cannot request arbitrary expensive models (0.3887ms)
+✔ SiliconFlow disables thinking for conversational latency (0.1682ms)
+✔ forwards only operator credentials and fixed model to provider (12.136ms)
+✔ falls back before any streamed output on rate-limit (5.6554ms)
+✔ proxies SSE immediately rather than buffering a complete reply (5.191ms)
+✔ rejects malformed history without invoking providers (3.8933ms)
+✔ keeps provider failures out of client response (3.7261ms)
+✔ rate limit prevents repeated inference charges (5.1111ms)
+✔ optional service authorization is enforced (4.5908ms)
+✔ uploads voice using operator ASR model and preserves original language (5.6845ms)
+✔ rejects unsupported voice language (3.0189ms)
+✔ an English-only topic regeneration is rejected and the previous bilingual hint survives (0.8102ms)
+✔ a bilingual topic regeneration remains editable and private (0.2069ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 46
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 224.2181

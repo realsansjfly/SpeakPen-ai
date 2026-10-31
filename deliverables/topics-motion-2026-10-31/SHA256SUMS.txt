@@ -1,0 +1,1 @@
+b7ef180d1bf22db401ce16c35e6c0939ffc40a05586367a11d3cc3ab826dfbcb  SpeakPen-0.6.0-dev06-debug.apk

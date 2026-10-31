@@ -75,7 +75,9 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
                 }
             }
         } else if (session.messages.isEmpty()) {
-            TopicSuggestions(session.id, active = visible && state.appForeground && !typing && !state.voiceActive && !state.scenarioPickerVisible && !state.targetPickerVisible,
+            TopicSuggestions(session.id, visitVersion = state.topicVisitVersion, visitActive = visible && state.appForeground,
+                nextBatch = vm::nextTopicBatch, onError = vm::error,
+                active = visible && state.appForeground && !typing && !state.voiceActive && !state.scenarioPickerVisible && !state.targetPickerVisible,
                 enabled = !locked, onSelect = { text -> vm.draft(text); typing = true }, onStart = { vm.startConversation() },
                 demoAvailable = !state.serviceConfigured && !state.settings.demoMode,
                 onDemo = { if (vm.preferences(state.settings.copy(demoMode = true))) vm.startConversation() },

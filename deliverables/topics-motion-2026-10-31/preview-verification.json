@@ -1,0 +1,14 @@
+{
+  "preview": "pass",
+  "distinctTopicsAcross50Batches": 440,
+  "adjacentBatchOverlap": 0,
+  "viewports": [
+    320,
+    390,
+    1000
+  ],
+  "javascriptErrors": [],
+  "background4sMeanChannelChange": 0.945,
+  "reducedMotion": "pass",
+  "androidRendering": "not tested"
+}

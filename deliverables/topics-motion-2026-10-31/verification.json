@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-31",
+  "versionName": "0.6.0-dev06",
+  "versionCode": 13,
+  "applicationId": "com.speakpen.app",
+  "apkBytes": 17646297,
+  "apkSha256": "b7ef180d1bf22db401ce16c35e6c0939ffc40a05586367a11d3cc3ab826dfbcb",
+  "signerSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "sameSignerAsDev05": true,
+  "unpaired": true,
+  "knownCredentialScan": "pass",
+  "buildMirror": "C:\\Users\\Realsansjfly\\AppData\\Local\\Temp\\SpeakPen-build-4b14943c",
+  "matchingSourceInputs": 87,
+  "matchingPackagedAssets": 11,
+  "android": {
+    "tests": 169,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "node": {
+    "tests": 46,
+    "passed": 46,
+    "result": "npm test executed this batch"
+  },
+  "topics": {
+    "version": 1,
+    "total": 440,
+    "english": 240,
+    "chinese": 200,
+    "sha256": "dddf9a05439d53d3eb2df6ef18e047b0abf42c0f71bb3330ec8f44c5e63a5f8f",
+    "sourceCommit": "e9bbcaa0e89fd7f44f2abd3fdead2e54c3cdb67c"
+  },
+  "topicsAndMotionTests": 7,
+  "preview": {
+    "preview": "pass",
+    "distinctTopicsAcross50Batches": 440,
+    "adjacentBatchOverlap": 0,
+    "viewports": [
+      320,
+      390,
+      1000
+    ],
+    "javascriptErrors": [],
+    "background4sMeanChannelChange": 0.945,
+    "reducedMotion": "pass",
+    "androidRendering": "not tested"
+  },
+  "realServiceStatus": [
+    {
+      "route": "local",
+      "status": 200,
+      "pass": true,
+      "elapsedMs": 7,
+      "dnsFallback": false,
+      "sameLocalInstance": true
+    },
+    {
+      "route": "phone-public",
+      "status": 200,
+      "pass": true,
+      "elapsedMs": 1851,
+      "dnsFallback": false,
+      "sameLocalInstance": true
+    }
+  ],
+  "paidAiAsrTests": "not run; no topic or motion request uses the model",
+  "deviceTests": "not run: adb has no device",
+  "limits": [
+    "No Android rendering or frame-rate evidence",
+    "No device upgrade or accessibility acceptance"
+  ]
+}

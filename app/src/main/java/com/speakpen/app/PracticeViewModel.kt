@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 import java.io.File
 
 data class PracticeState(
-    val page: Int = 0, val appForeground: Boolean = true, val settings: AppSettings = AppSettings(),
+    val page: Int = 0, val appForeground: Boolean = true, val topicVisitVersion: Long = 0, val settings: AppSettings = AppSettings(),
     val sessions: List<ChatSession> = emptyList(), val currentSessionId: String = "", val library: List<ReviewItem> = emptyList(),
     val draft: String = "", val inputKind: InputKind = InputKind.ENGLISH,
     val serviceStatus: String = "正在检查服务连接…", val serviceOnline: Boolean = false,
@@ -50,6 +50,10 @@ data class PracticeState(
 }
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
+    private val topicSampler by lazy {
+        TopicSampler(TopicCatalog.parse(getApplication<Application>().assets.open("topics/catalog.json").bufferedReader().use { it.readText() }))
+    }
+    fun nextTopicBatch(): TopicBatch = topicSampler.next()
     // Large unconfirmed import content survives Activity recreation without using its Bundle.
     var vocabularyImportRaw: String = ""
     var vocabularyImportPreview: VocabularyPreview? = null
@@ -351,7 +355,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         clearLearningSurfaces()
         val current = state.value
         val started = ConversationSessions.start(SavedData(current.sessions, current.library, current.currentSessionId), mode, targets, current.settings.conversationDefaults)
-        mutable.update { it.copy(sessions = started.sessions, currentSessionId = started.currentSessionId, page = 0,
+        mutable.update { it.copy(sessions = started.sessions, currentSessionId = started.currentSessionId, page = 0, topicVisitVersion = it.topicVisitVersion + 1,
             draft = "", candidates = null, targetPickerVisible = false, error = null, notice = null, inputKind = InputKind.ENGLISH, streamingText = "", operationAnchorId = null, scrollToMessageId = null) }
         persist()
     }
