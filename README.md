@@ -1,12 +1,12 @@
-# SpeakPen · 开口 — 0.6.0-dev02 开发预览版
+# SpeakPen · 开口 — 0.6.0-dev07 开发预览版
 
-当前发布：[v0.6.0-dev02](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.6.0-dev02)。Release 提供同签名 Debug APK、SHA-256 校验文件和测试报告；本版为预发布，新增交互尚待真机验收。更新内容与安装说明见 [版本说明](docs/releases/v0.6.0-dev02.md)，历史记录见 [CHANGELOG](docs/CHANGELOG.md)。
+当前预发布：[v0.6.0-dev07](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.6.0-dev07)。[全部 Releases](https://github.com/realsansjfly/SpeakPen-ai/releases) 提供 dev02～dev07 每版的更新说明、同签名 Debug APK、SHA-256 和测试报告。按版本查看新增与修改见 [版本索引](docs/releases/README.md)，简要历史见 [CHANGELOG](docs/CHANGELOG.md)。dev07 修正表达提示格式要求及占位符兼容，真实模型稳定性与真机交互仍待验收。
 
 公开 APK 不内置服务地址或配对令牌。已有设备可覆盖安装并沿用已保存的配对；首次安装后，在“设置 → 服务连接 → 重新连接”粘贴自己的私密配对入口。下文“直接使用”为 0.4.0 历史说明，当前版本请按版本说明安装。
 
-2026-10-26 开发进度：已实现本轮第 1 批会话配置、三档表达难度和高级参数；开发包为 0.6.0-dev01，其余新功能仍待后续批次。实现范围、验证证据和独立构建／安装命令见 [本轮实施记录](docs/IMPLEMENTATION-2026-10-26.md)。下文保留现有 0.4.0 使用说明；现用服务和旧安装包没有被替换。
+当前开发进度：会话配置、场景首个 Android 增量、词库、分层提示／优化重说／可选纠错、复盘导出和成功反馈／统计已分批接入；dev06 增加 440 条随机话题及局部渐变，dev07 修正表达提示格式。各批自动化、真实接口和设备验收边界见 [本轮实施记录](docs/IMPLEMENTATION-2026-10-26.md)。以下 0.4.0／dev02 段落为历史说明，当前安装入口与行为以版本说明为准。
 
-首次体验修复已更新为 **0.6.0-dev02**：设置页区分“当前对话／新对话默认”，优化提示插入原句下方并可折叠，话题语料强化中英解释。新包、提示词入口和测试证据见 [第一批调试记录](docs/DEBUG-FIRST-BATCH-2026-10-26.md)。
+dev02 历史：设置区分“当前对话／新对话默认”，优化提示插入原句下方并可折叠，话题语料强化中英解释，见 [第一批调试记录](docs/DEBUG-FIRST-BATCH-2026-10-26.md)。dev03 起设置改为抽屉中的独立页面，返回自动保存、失败留页重试，已取代 dev02 的显式保存／撤销和离开确认。
 
 真实 AI 已接通：聊天 `qwen3.7-flash-2026-07-15`，语音识别 `qwen3-asr-flash`，云端朗读 `qwen3-tts-flash`。
 
@@ -48,8 +48,9 @@ Node 仅监听 127.0.0.1:8787。Cloudflare 官方签名的 cloudflared 建立 HT
 # 停止当前项目登记的服务和 tunnel
 .\scripts\stop-service.ps1
 
-# 编译：自动读取 .local/connection.json 的本机服务地址和配对令牌
-.\scripts\build.ps1 -JavaHome 'C:\path\to\jdk17' -Offline
+# 构建可公开分享的未配对 APK，具体文件名按新版本调整
+.\scripts\build.ps1 -JavaHome 'C:\path\to\jdk17' -Offline -Unpaired `
+  -OutputDirectory '.\deliverables\my-build' -ApkName 'SpeakPen-debug.apk'
 ```
 
 `server/.env` 是本机服务端配置，包含运营密钥，已排除版本控制。不要复制到 App 或公开文档。
