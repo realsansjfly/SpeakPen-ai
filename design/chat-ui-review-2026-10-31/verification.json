@@ -1,0 +1,18 @@
+{
+  "scope": "isolated HTML proposal, not Android validation",
+  "passed": [
+    "75% drawer width",
+    "drawer keyboard focus loop and Escape",
+    "independent current/default drafts",
+    "exit save and reopening",
+    "save failure retains draft and retry succeeds",
+    "scene goal disclosure",
+    "topic fills draft before explicit send",
+    "desktop/360/390 no horizontal overflow",
+    "reduced motion disables scrolling animation",
+    "no JavaScript errors"
+  ],
+  "api_calls": 0,
+  "android_build": false,
+  "device_validation": false
+}

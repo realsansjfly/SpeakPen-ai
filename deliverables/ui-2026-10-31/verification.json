@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-31",
+  "apk": "SpeakPen-0.6.0-dev03-debug.apk",
+  "package": {
+    "name": "com.speakpen.app",
+    "versionCode": "10",
+    "versionName": "0.6.0-dev03"
+  },
+  "sha256": "8af313f956c4736e4b7d6fd0409a8f80bf8aa3bf0105100624695c7a631774cc",
+  "bytes": 17357655,
+  "signature": {
+    "verified": true,
+    "sha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+    "matchesDev02": true
+  },
+  "androidUnitTests": {
+    "tests": 116,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "nodeTests": {
+    "tests": 46,
+    "passed": 46
+  },
+  "unpaired": {
+    "buildConfigEmpty": {
+      "SERVICE_BASE_URL": true,
+      "SERVICE_ACCESS_TOKEN": true
+    },
+    "knownCredentialsFoundInApk": false,
+    "knownValuesChecked": 3,
+    "scanEncodings": [
+      "utf-8",
+      "utf-16-le"
+    ]
+  },
+  "buildInputs": {
+    "count": 65,
+    "allMatchMirror": true
+  },
+  "realInterfaces": {
+    "health": "reachable, ready=true",
+    "pairedStatus": "reachable, ready=true, conversationControlsVersion=1",
+    "modelGenerationRetested": false,
+    "asrRetested": false,
+    "serviceOrTunnelRestarted": false
+  },
+  "device": {
+    "adbDevices": 0,
+    "installationTested": false,
+    "nativeVisualValidation": false,
+    "storageFaultInjection": false
+  }
+}

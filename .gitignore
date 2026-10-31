@@ -21,3 +21,10 @@ app/src/main/res/xml/local_network_security.xml
 
 deliverables/打开真实对话.html
 
+# APK and full generated reports are distributed as GitHub Release assets.
+# Existing tracked historical files are retained.
+deliverables/**/*.apk
+deliverables/**/reports/
+deliverables/**/test-results/
+deliverables/**/*-test-reports.zip
+

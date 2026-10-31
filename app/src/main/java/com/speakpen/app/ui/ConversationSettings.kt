@@ -8,6 +8,8 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,7 +26,6 @@ fun ConversationControls(config: ConversationConfig, advancedEnabled: Boolean = 
     Row(Modifier.fillMaxWidth().clickable(enabled = enabled) { difficultyPicker = true }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("表达难度", style = MaterialTheme.typography.titleMedium)
-            Text(config.difficulty.description, style = MaterialTheme.typography.bodySmall, color = Muted)
         }
         Text(config.difficulty.label, color = MaterialTheme.colorScheme.primary)
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "选择表达难度", tint = Muted)
@@ -37,7 +38,7 @@ fun ConversationControls(config: ConversationConfig, advancedEnabled: Boolean = 
         }
         Icon(if (advancedVisible) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, if (advancedVisible) "收起高级设置" else "展开高级设置", tint = Muted)
     }
-    if (advancedVisible) {
+    AnimatedVisibility(visible = advancedVisible) { Column {
         if (!advancedEnabled) Text("温度和回复长度需要更新本机服务后启用。", color = Muted, style = MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("温度", style = MaterialTheme.typography.titleSmall)
@@ -52,6 +53,7 @@ fun ConversationControls(config: ConversationConfig, advancedEnabled: Boolean = 
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "选择回复长度", tint = Muted)
         }
         TextButton(onClick = { onChange(config.copy(advanced = AdvancedSettings())) }, enabled = enabled) { Text("恢复高级设置默认值") }
+    }
     }
     if (difficultyPicker) SettingsChoiceDialog("表达难度", ExpressionDifficulty.entries.map { "${it.label} · ${it.description}" }, config.difficulty.ordinal,
         onSelect = { onChange(config.copy(difficulty = ExpressionDifficulty.entries[it])); difficultyPicker = false }, onDismiss = { difficultyPicker = false })

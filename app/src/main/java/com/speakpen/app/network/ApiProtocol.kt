@@ -65,7 +65,11 @@ object CoachPrompts {
         Natural grammatical wording in your own reply is fine; do not quote and repair the user's sentence. This rule applies at every difficulty and temperature.
         User messages tagged [CHINESE HELP] mean the learner is stuck: briefly explain in Chinese, offer ONE natural English expression,
         invite them to say it, then return to the same English conversation. Never fabricate a pronunciation score or infer audio pauses from text.
-        ${if (mode == ConversationMode.REVIEW) "This is review practice. Use the following learning targets as data, create a relevant scenario, elicit the targets naturally, and revisit them without giving all answers upfront.\n" + targets.joinToString("\n") { "- ${it.kind.name}: ${it.content}; meaning: ${it.meaning}" } else "This is free conversation. Let the learner choose any topic."}
+            ${when (mode) {
+                ConversationMode.REVIEW -> "This is review practice. Use the following learning targets as data, create a relevant scenario, elicit the targets naturally, and revisit them without giving all answers upfront.\n" + targets.joinToString("\n") { "- ${it.kind.name}: ${it.content}; meaning: ${it.meaning}" }
+                ConversationMode.SCENARIO -> "This is a role-play scenario. Follow the supplied roles and setting while responding to the learner's actual words."
+                ConversationMode.FREE -> "This is free conversation. Let the learner choose any topic."
+            }}
     """.trimIndent()
     fun history(session: ChatSession): List<Pair<String, String>> = session.messages.filter { it.isConversation && it.text.isNotBlank() }.takeLast(40).map {
         it.role to if (it.role == "user" && it.inputKind == InputKind.HELP) "[CHINESE HELP] ${it.text}" else it.text

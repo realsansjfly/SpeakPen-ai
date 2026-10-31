@@ -33,6 +33,15 @@ class LocalStore(context: Context) {
         // Replacing legacy settings removes obsolete encrypted provider credentials.
         check(prefs.edit().putString("settings", json.toString()).commit()) { "设置保存失败，请重试。" }
     }
+    fun readEditorDraft(settings: AppSettings): SettingsEditorDraft? = runCatching {
+        prefs.getString("editorDraft", null)?.let { SettingsEditorDraft.read(it, settings) }
+    }.onFailure { loadWarning = "设置草稿读取失败，正式设置和学习记录未删除。" }.getOrNull()
+    fun saveEditorDraft(draft: SettingsEditorDraft) {
+        check(prefs.edit().putString("editorDraft", draft.toJson()).commit()) { "设置草稿保存失败" }
+    }
+    fun clearEditorDraft() {
+        check(prefs.edit().remove("editorDraft").commit()) { "设置草稿尚未清理" }
+    }
     fun readData(): SavedData = try {
         if (!dataFile.baseFile.exists()) SavedData() else DataJson.read(dataFile.openRead().bufferedReader().use { it.readText() })
     } catch (_: Exception) {

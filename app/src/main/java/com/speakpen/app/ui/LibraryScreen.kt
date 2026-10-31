@@ -29,7 +29,7 @@ fun LibraryScreen(state: PracticeState, vm: PracticeViewModel) {
     val shown = state.library.filter { item -> (kind == null || item.kind == kind) && (item.content.contains(query, true) || item.meaning.contains(query, true)) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) { Eyebrow("YOUR WORDS, READY TO USE"); Text("把好表达留住", style = MaterialTheme.typography.titleLarge); Text("${state.library.size} 项收藏 · $due 项待复习", color = Muted, style = MaterialTheme.typography.bodyMedium) }
+            Column(Modifier.weight(1f)) { Text("${state.library.size} 项收藏 · $due 项待复习", color = Muted, style = MaterialTheme.typography.bodyMedium) }
             FilledIconButton(onClick = { editItem = ReviewItem(content = "") }) { Icon(Icons.Outlined.Add, "手动添加") }
         }
         if (state.library.isNotEmpty()) Button(onClick = { vm.showTargets(true) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), enabled = state.busy == null && !state.voiceActive) {

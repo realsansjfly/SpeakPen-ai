@@ -40,17 +40,7 @@ class MainActivity : ComponentActivity() {
                     if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.startRecording()
                     else permission.launch(Manifest.permission.RECORD_AUDIO)
                 }
-                val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-                Scaffold(modifier = Modifier.imePadding(), containerColor = Paper, contentWindowInsets = WindowInsets.safeDrawing,
-                    bottomBar = {
-                        if (!keyboardVisible) NavigationBar(containerColor = Paper, tonalElevation = 0.dp) {
-                            val icons = listOf(Icons.Outlined.ChatBubbleOutline, Icons.Outlined.AutoStories, Icons.Outlined.Tune)
-                            listOf("聊聊", "复习", "设置").forEachIndexed { index, title ->
-                                NavigationBarItem(selected = state.page == index, onClick = { vm.page(index) }, enabled = !state.voiceActive && !state.settingsSaving,
-                                    icon = { Icon(icons[index], title) }, label = { Text(title) })
-                            }
-                        }
-                    }) { padding ->
+                Scaffold(modifier = Modifier.imePadding(), containerColor = Paper, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
                     Column(Modifier.fillMaxSize().padding(padding)) {
                         if (state.error != null || state.notice != null) Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             InlineNotice(state.error ?: state.notice.orEmpty(), state.error != null, vm::clearFeedback)
@@ -60,11 +50,7 @@ class MainActivity : ComponentActivity() {
                             Text(state.busy.orEmpty(), Modifier.weight(1f)); TextButton(onClick = vm::cancelOperation) { Text("取消") }
                         }
                         Box(Modifier.weight(1f)) {
-                            when (state.page) {
-                                0 -> ChatScreen(state, vm, record)
-                                1 -> LibraryScreen(state, vm)
-                                2 -> SettingsScreen(state, vm)
-                            }
+                            PracticeNavigation(state, vm, record)
                         }
                     }
                     PracticeDialogs(state, vm)

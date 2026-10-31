@@ -35,6 +35,8 @@ fun ReviewEditor(item: ReviewItem, onDismiss: () -> Unit, onSave: (ReviewItem) -
 
 @Composable
 fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
+    if (state.scenarioPickerVisible) ScenarioPicker(state, vm)
+    state.scenarioEditor?.let { ScenarioEditor(it, vm::editScenario, vm::saveScenario) }
     state.accumulationEditor?.let { item -> ReviewEditor(item, onDismiss = vm::dismissAccumulation, onSave = vm::saveAccumulation) }
     if (state.historyVisible) AlertDialog(onDismissRequest = { vm.showHistory(false) }, title = { Text("练习记录") },
         text = { LazyColumn(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -92,6 +94,39 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
             dismissButton = { TextButton(onClick = vm::dismissCandidates) { Text("暂不收藏") } })
         editing?.let { item -> ReviewEditor(item, onDismiss = { editing = null }, onSave = { vm.editCandidate(it); editing = null }) }
     }
+}
+
+@Composable
+private fun ScenarioPicker(state: PracticeState, vm: PracticeViewModel) {
+    val templates = (ScenarioPresets.all + state.scenarioTemplates).distinctBy { it.id }
+    AlertDialog(onDismissRequest = { vm.showScenarios(false) }, title = { Text("开始场景练习") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("六项场景配置会保存为本次练习快照。结束条件满足或轮数到限后自动结束。", color = Muted)
+            templates.forEach { template ->
+                OutlinedButton(onClick = { vm.startScenario(template) }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) { Text(template.name); Text("${template.aiRole} · ${template.userRole}", color = Muted, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+            TextButton(onClick = { vm.editScenario(ScenarioTemplate()) }, modifier = Modifier.fillMaxWidth()) { Text("自建场景") }
+        } }, confirmButton = { TextButton(onClick = { vm.showScenarios(false) }) { Text("取消") } })
+}
+
+@Composable
+private fun ScenarioEditor(initial: ScenarioTemplate, onDismiss: (ScenarioTemplate?) -> Unit, onSave: (ScenarioTemplate) -> Unit) {
+    var value by remember(initial.id) { mutableStateOf(initial) }
+    var goals by remember(initial.id) { mutableStateOf(initial.goals.joinToString("\n") { it.text }) }
+    AlertDialog(onDismissRequest = { onDismiss(null) }, title = { Text("自建场景 · 六项配置") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value.name, { value = value.copy(name = it) }, label = { Text("场景名称／情境") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.aiRole, { value = value.copy(aiRole = it) }, label = { Text("AI 角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.userRole, { value = value.copy(userRole = it) }, label = { Text("我的角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(goals, { goals = it }, label = { Text("目标清单 · 每行一项") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.opening, { value = value.copy(opening = it) }, label = { Text("开场白 · 可留空由 AI 生成") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.endCondition, { value = value.copy(endCondition = it) }, label = { Text("自然语言结束条件") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.maxTurns?.toString().orEmpty(), { value = value.copy(maxTurns = it.toIntOrNull()) }, label = { Text("轮数上限 · 可留空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        } },
+        confirmButton = { TextButton(onClick = { onSave(value.copy(goals = goals.lines().map { ScenarioGoal(text = it.trim()) }.filter { it.text.isNotBlank() })) }) { Text("保存") } },
+        dismissButton = { TextButton(onClick = { onDismiss(null) }) { Text("取消") } })
 }
 
 

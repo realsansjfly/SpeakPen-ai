@@ -51,6 +51,16 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
     }
     suspend fun learning(config: ApiConfig, messages: List<Pair<String, String>>): String = chat(config, messages, "learning")
 
+    suspend fun scenarioAssessment(config: ApiConfig, session: ChatSession): ScenarioAssessment {
+        val body = JSONObject(ApiProtocol.chatBody(config.model, ScenarioProtocol.assessment(session)))
+            .put("purpose", ScenarioProtocol.PURPOSE).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val raw = request(config, "chat/completions", body)
+        check(JSONObject(raw).getJSONArray("choices").getJSONObject(0).optString("finish_reason") == "stop") {
+            "场景判定未完整返回，未记录成功。请重试判定。"
+        }
+        return ScenarioProtocol.parse(ApiProtocol.chatText(raw), session)
+    }
+
     suspend fun streamChat(config: ApiConfig, messages: List<Pair<String, String>>, advanced: AdvancedSettings? = null, onText: (String) -> Unit): String {
         ApiProtocol.requireModel(config)
         val body = JSONObject(ApiProtocol.chatBody(config.model, messages, advanced)).put("stream", true).toString()
