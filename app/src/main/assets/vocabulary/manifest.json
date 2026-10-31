@@ -1,0 +1,40 @@
+{
+  "repository": "https://github.com/skywind3000/ECDICT",
+  "commit": "ab22ad36302cafc6349a050e2b60894855208055",
+  "files": {
+    "LICENSE": {
+      "sha256": "f8552dd246f61a4e064569eae6194a01c6b3d63b03bf27c6ca863593c549ed0f",
+      "bytes": 1063
+    },
+    "README.md": {
+      "sha256": "0c3f95fc7e15f7eccf65feedb58ba3ebace1fe7b7cbdd1af60c9ace4cef9094b",
+      "bytes": 18414
+    },
+    "ecdict.csv": {
+      "sha256": "d1ecbdf9ee2b920afb6f430ca6b6bb9f559588cf0dff86e04bd255f9390843cc",
+      "bytes": 66009548
+    }
+  },
+  "cet4": {
+    "name": "四级 · 社区词表",
+    "taggedRows": 3849,
+    "entries": 3849,
+    "excluded": 0,
+    "sha256": "ccf85fd03f751e21cfbde05d35579b646f76d41134b6961161545b868eb82a36"
+  },
+  "cet6": {
+    "name": "六级 · 社区词表",
+    "taggedRows": 5407,
+    "entries": 5407,
+    "excluded": 0,
+    "sha256": "b0204df4217e21c860e0faa3263f9706a71f7983b38d7a93e39cbea789650d5b"
+  },
+  "ielts": {
+    "name": "雅思 · 社区词表",
+    "taggedRows": 5040,
+    "entries": 5040,
+    "excluded": 0,
+    "sha256": "3632d20434322faa63b6770827931cccb6cc7afcf0536c68c9b46678edc5ada6"
+  },
+  "csvRows": 770611
+}

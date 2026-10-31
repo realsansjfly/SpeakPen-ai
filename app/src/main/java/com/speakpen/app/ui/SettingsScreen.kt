@@ -3,6 +3,7 @@ package com.speakpen.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.ui.platform.LocalDensity
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import com.speakpen.app.BuildConfig
 import com.speakpen.app.PracticeState
 import com.speakpen.app.PracticeViewModel
@@ -26,6 +28,7 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
     var pairingVisible by remember { mutableStateOf(false) }
     var pairingText by remember { mutableStateOf("") }
     var defaultsTab by rememberSaveable { mutableStateOf(false) }
+    var vocabularyVisible by rememberSaveable { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val draft = state.settingsDraft ?: state.settings
     val currentConfig = state.conversationDraft ?: state.session.config
@@ -60,10 +63,20 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
                     else "仅影响「${editedSession.title}」的后续回复。历史消息和生成中的回复保留原设置。",
                     Modifier.padding(vertical = 14.dp), style = MaterialTheme.typography.bodySmall, color = Muted)
                 key(defaultsTab, state.settingsSessionId) {
+                    val scopedConfig = if (defaultsTab) draft.conversationDefaults else currentConfig
                     ConversationControls(if (defaultsTab) draft.conversationDefaults else currentConfig,
                         advancedEnabled = state.conversationControlsSupported || draft.demoMode, enabled = enabled) { config ->
                         if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = config)) else vm.editConversationSettings(config)
                     }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled) { vocabularyVisible = true; vm.clearFeedback() }, verticalAlignment = Alignment.CenterVertically) {
+                        Text("词库增强", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        Text(scopedConfig.vocabulary?.name ?: "关闭", Modifier.widthIn(max = 190.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (vocabularyVisible) VocabularyScreen(state, vm, scopedConfig.vocabulary, onChoose = { choice ->
+                        val updated = scopedConfig.copy(vocabulary = choice)
+                        if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = updated)) else vm.editConversationSettings(updated)
+                    }, onDismiss = { vocabularyVisible = false })
                 }
             }
             item {

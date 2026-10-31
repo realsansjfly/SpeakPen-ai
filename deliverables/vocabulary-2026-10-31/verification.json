@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-31",
+  "versionName": "0.6.0-dev04",
+  "versionCode": 11,
+  "applicationId": "com.speakpen.app",
+  "apkBytes": 17511535,
+  "apkSha256": "8d9bcad926a89b9c62335cb11d98e84fdb2d575981e73d24f188782f5164b738",
+  "signerSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "sameSignerAsDev03": true,
+  "unpaired": true,
+  "knownCredentialScan": "pass",
+  "buildMirror": "C:\\Users\\Realsansjfly\\AppData\\Local\\Temp\\SpeakPen-build-39df84aa",
+  "matchingSourceInputs": 71,
+  "android": {
+    "tests": 137,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "node": {
+    "tests": 46,
+    "passed": 46,
+    "result": "npm test executed this batch"
+  },
+  "builtInCounts": {
+    "cet4": 3849,
+    "cet6": 5407,
+    "ielts": 5040
+  },
+  "offlineCandidateCases": 15,
+  "realServiceStatus": {
+    "local": 200,
+    "public": 200,
+    "sameInstance": true
+  },
+  "paidAiAsrTests": "not run",
+  "deviceTests": "not run: adb has no device",
+  "uiEvidence": "static HTML flow preview only; no Android screenshot"
+}

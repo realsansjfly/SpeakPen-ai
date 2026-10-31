@@ -30,6 +30,8 @@ data class PracticeState(
     val operationAnchorId: String? = null,
     val scenarioTemplates: List<ScenarioTemplate> = emptyList(), val scenarioSuccesses: List<ScenarioSuccess> = emptyList(),
     val scenarioPickerVisible: Boolean = false, val scenarioEditor: ScenarioTemplate? = null,
+    val vocabularyBooks: List<VocabularyBook> = emptyList(), val vocabularySaving: Boolean = false,
+    val vocabularySuggestion: VocabularySuggestion? = null,
 ) {
     val settingsDirty: Boolean get() = settingsDraft?.let { SettingsUpdates.merge(settings, it) != settings } == true ||
         conversationDraft?.let { draft -> sessions.firstOrNull { it.id == settingsSessionId }?.config?.let { it != draft } } == true
@@ -45,7 +47,16 @@ data class PracticeState(
 }
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
+    // Large unconfirmed import content survives Activity recreation without using its Bundle.
+    var vocabularyImportRaw: String = ""
+    var vocabularyImportPreview: VocabularyPreview? = null
+    var vocabularyImportName: String = ""
+    var vocabularyImportSource: String = ""
+    var vocabularyImportFilename: String = ""
+    var vocabularyImportFormat: VocabularyFormat = VocabularyFormat.TXT
     private val store = LocalStore(application)
+    private val vocabularyStore = VocabularyStore(application)
+    private val vocabularyBooks = vocabularyStore.load()
     private val recordings = RecordingStore(application)
     private val ai = AiClient()
     private val stored = store.readData()
@@ -57,7 +68,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private val recoveredEditor = store.readEditorDraft(preferences)
     private val initialSession = saved.sessions.firstOrNull { it.id == saved.currentSessionId } ?: ChatSession(config = preferences.conversationDefaults)
     private val mutable = MutableStateFlow(SettingsUpdates.apply(PracticeState(
-        settings = preferences, sessions = saved.sessions.ifEmpty { listOf(initialSession) },
+        settings = preferences, vocabularyBooks = vocabularyBooks, sessions = saved.sessions.ifEmpty { listOf(initialSession) },
         currentSessionId = initialSession.id, draft = initialSession.draft, library = saved.library, error = store.loadWarning,
         scenarioTemplates = saved.scenarioTemplates, scenarioSuccesses = saved.sessions.fold(saved) { data, session -> Scenarios.settle(data, session) }.scenarioSuccesses,
     ), preferences).let { initial ->
@@ -83,6 +94,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         onError = { error -> mutable.update { it.copy(error = error) } },
     )
     init {
+        vocabularyStore.warning?.let { error(it) }
         application.cacheDir.listFiles()?.filter { it.name.startsWith("utterance_") }?.forEach { it.delete() }
         if (saved != stored) persist()
         runCatching { store.saveSettings(preferences) }
@@ -112,6 +124,50 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     }
     fun editConversationSettings(value: ConversationConfig) {
         if (!state.value.settingsSaving) { mutable.update { it.copy(conversationDraft = value, settingsFeedback = null, settingsSaveError = false) }; protectSettingsDraft() }
+    }
+    fun saveVocabulary(book: VocabularyBook, onComplete: (VocabularyBook?) -> Unit) {
+        if (state.value.vocabularySaving) return
+        require(book.name.isNotBlank() && book.name.length <= 80 && book.source.isNotBlank() && book.source.length <= 500 && book.entries.isNotEmpty())
+        val duplicate = state.value.vocabularyBooks.firstOrNull { it.id == book.id && it.version == book.version ||
+            (!book.builtIn && it.name == book.name && it.source == book.source && it.originalText == book.originalText &&
+                it.format == book.format && it.fileName == book.fileName && it.digest == book.digest) }
+        if (duplicate != null) { onComplete(duplicate); return }
+        mutable.update { it.copy(vocabularySaving = true) }
+        viewModelScope.launch {
+            try {
+                val books = state.value.vocabularyBooks + book
+                withContext(Dispatchers.IO) { vocabularyStore.save(books) }
+                mutable.update { it.copy(vocabularyBooks = books, vocabularySuggestion = null) }
+                onComplete(book)
+            } catch (_: Exception) { error("词库保存失败，预览已保留，请重试。"); onComplete(null) }
+            finally { mutable.update { it.copy(vocabularySaving = false) } }
+        }
+    }
+    fun dismissVocabularySuggestion() { mutable.update { it.copy(vocabularySuggestion = null) } }
+    fun requestVocabularyMeaning(book: VocabularyBook, entry: VocabularyEntry) {
+        if (entry.meaning.isNotBlank() || entry.aiMeaning.isNotBlank() || state.value.settings.demoMode) {
+            error("已有释义不自动覆盖；示例模式不生成词库释义。"); return
+        }
+        if (!canUseService()) return
+        dismissVocabularySuggestion()
+        runOperation("补充「${entry.expression.take(30)}」的释义…") {
+            val token = operationGeneration
+            val (meaning, example) = ai.vocabularyDefinition(ManagedService.config(state.value.settings), entry)
+            if (token == operationGeneration) mutable.update { it.copy(vocabularySuggestion = VocabularySuggestion(
+                book.id, book.version, entry.id, meaning, example, "AI 补充 · 应用服务 · ${System.currentTimeMillis()}")) }
+        }
+    }
+    fun confirmVocabularyMeaning(onComplete: (VocabularyBook?) -> Unit) {
+        val suggestion = state.value.vocabularySuggestion ?: return
+        val book = state.value.vocabularyBooks.firstOrNull { it.id == suggestion.bookId && it.version == suggestion.version } ?: return
+        saveVocabulary(book.supplement(suggestion.entryId, suggestion.meaning, suggestion.example, suggestion.provenance), onComplete)
+    }
+    private fun vocabularySnapshot(session: ChatSession, context: String = session.messages.filter { it.isConversation }
+        .takeLast(8).joinToString("\n") { it.text }): GenerationSnapshot {
+        val scene = session.scenario?.takeIf { it.phase == ScenarioPhase.ACTIVE }?.template?.let {
+            "${it.name} ${it.aiRole} ${it.userRole}"
+        }.orEmpty()
+        return GenerationSnapshot.capture(session, VocabularyCandidates.prepare(session, state.value.vocabularyBooks, "$scene\n$context"))
     }
     fun revertSettings() {
         if (!state.value.settingsSaving) mutable.update { it.copy(settingsDraft = it.settings,
@@ -234,12 +290,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val session = state.value.session
         if (session.scenario?.phase != ScenarioPhase.ACTIVE || session.messages.any { it.scenarioOpening } || state.value.busy != null) return
         runOperation("准备场景开场白…") {
-            val snapshot = GenerationSnapshot.capture(session); val token = operationGeneration
+            val snapshot = vocabularySnapshot(session); val token = operationGeneration
             val text = if (state.value.settings.demoMode) session.scenario!!.template.opening.ifBlank { "Hi! Welcome. How can I help you today?" }
-                else ai.chat(ManagedService.config(state.value.settings), ScenarioProtocol.opening(session), "chat", session.config.advanced)
+                else ai.chat(ManagedService.config(state.value.settings), ScenarioProtocol.opening(session.copy(config = snapshot.config)), "chat", snapshot.config.advanced)
             if (!isCurrent(snapshot, token)) return@runOperation
             val latest = state.value.sessions.first { it.id == session.id }
-            updateSession(latest.copy(messages = latest.messages + ChatMessage(role = "assistant", text = text, generationConfig = session.config, scenarioOpening = true), updatedAt = System.currentTimeMillis()))
+            updateSession(latest.copy(messages = latest.messages + ChatMessage(role = "assistant", text = text, generationConfig = snapshot.config, configRevision = snapshot.configRevision, scenarioOpening = true), updatedAt = System.currentTimeMillis()))
         }
     }
     private fun checkScenario() {
@@ -317,7 +373,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private suspend fun generateReply() {
         val current = state.value; val session = current.session
         val requestGeneration = operationGeneration
-        val snapshot = GenerationSnapshot.capture(session)
+        val snapshot = vocabularySnapshot(session)
         val targets = current.library.filter { it.id in session.targetIds }
         mutable.update { it.copy(busy = "AI 正在回复…", streamingText = "") }
         val text = if (current.settings.demoMode) {
@@ -381,10 +437,10 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (selected.role != "user" || !canUseService()) return
         runOperation("优化你的英文表达…", anchorId = id) {
             val session = state.value.session
-            val snapshot = GenerationSnapshot.capture(session); val token = operationGeneration
+            val snapshot = vocabularySnapshot(session, (LearningPrompts.contextBefore(session, id) + selected).joinToString("\n") { it.text }); val token = operationGeneration
             require(selected.text.isNotBlank()) { "请先完成语音转写或补充文字。" }
             val text = if (state.value.settings.demoMode) "A more natural way to say it:\nI really enjoyed catching up with a friend over coffee.\n\n说明：这是示例优化；保留原意，自然表达。"
-                else ai.learning(ManagedService.config(state.value.settings), LearningPrompts.optimize(session, selected))
+                else ai.learning(ManagedService.config(state.value.settings), LearningPrompts.optimize(session.copy(config = snapshot.config), selected))
             if (!isCurrent(snapshot, token)) return@runOperation
             appendHint(session.id, ChatMessage(role = "hint", text = text, hintKind = HintKind.OPTIMIZE,
                 generationConfig = snapshot.config, configRevision = snapshot.configRevision,
@@ -396,7 +452,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (!canUseService()) return
         runOperation("准备当前话题的地道表达…") {
             val session = state.value.session
-            val snapshot = GenerationSnapshot.capture(session); val token = operationGeneration
+            val snapshot = vocabularySnapshot(session); val token = operationGeneration
             val context = session.messages.filter { it.isConversation && it.text.isNotBlank() }.takeLast(12)
             require(context.isNotEmpty()) { "先开启一个话题，再获取相关语料。" }
             val text = if (state.value.settings.demoMode) "Talking about your day\n\n• catch up over coffee — 喝咖啡叙叙旧\nI caught up with a friend over coffee.\n\n• look forward to — 期待\nI'm looking forward to the weekend.\n\n（示例语料）"

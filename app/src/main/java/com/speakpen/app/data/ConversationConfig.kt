@@ -19,11 +19,13 @@ data class AdvancedSettings(val temperature: Double = 0.7, val replyLength: Repl
 data class ConversationConfig(
     val difficulty: ExpressionDifficulty = ExpressionDifficulty.DAILY,
     val advanced: AdvancedSettings = AdvancedSettings(),
+    val vocabulary: VocabularySelection? = null,
 )
 
 object ConversationConfigJson {
     fun write(config: ConversationConfig): JSONObject = JSONObject().apply {
-        put("version", 1); put("difficulty", config.difficulty.name)
+        put("version", 2); put("difficulty", config.difficulty.name)
+        config.vocabulary?.let { put("vocabulary", VocabularyJson.selection(it)) }
         put("temperature", config.advanced.temperature); put("replyLength", config.advanced.replyLength.name)
     }
 
@@ -33,6 +35,7 @@ object ConversationConfigJson {
         return ConversationConfig(
             difficulty = ExpressionDifficulty.entries.firstOrNull { it.name == json.optString("difficulty") } ?: ExpressionDifficulty.DAILY,
             advanced = AdvancedSettings(temperature, ReplyLength.entries.firstOrNull { it.name == json.optString("replyLength") } ?: ReplyLength.STANDARD),
+            vocabulary = json.optJSONObject("vocabulary")?.let(VocabularyJson::readSelection),
         )
     }
 }
@@ -51,6 +54,6 @@ data class GenerationSnapshot(
         requestGeneration == currentGeneration && activeSessionId == sessionId && matches(session)
 
     companion object {
-        fun capture(session: ChatSession) = GenerationSnapshot(session.id, session.config, session.configRevision, session.messages.toList())
+        fun capture(session: ChatSession, config: ConversationConfig = session.config) = GenerationSnapshot(session.id, config, session.configRevision, session.messages.toList())
     }
 }

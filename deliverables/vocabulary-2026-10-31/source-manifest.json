@@ -1,0 +1,310 @@
+{
+  "version": "0.6.0-dev04",
+  "applicationId": "com.speakpen.app",
+  "versionCode": 11,
+  "archiveMethod": "Preserved original build mirror; no APK rebuild; archive commits use current dates",
+  "apkSha256": "8d9bcad926a89b9c62335cb11d98e84fdb2d575981e73d24f188782f5164b738",
+  "inputs": [
+    {
+      "path": "app/build.gradle.kts",
+      "sha256": "8954b325347889e46f9bcaaf66c1f694f7e45a8bc6649d21c6e26fa3c247ec86"
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "sha256": "14c3a6e719ff837f8eba01b3217aaf5127cfed4900040b5a94ea4b428273f5f4"
+    },
+    {
+      "path": "app/src/main/assets/vocabulary/cet4.txt",
+      "sha256": "ccf85fd03f751e21cfbde05d35579b646f76d41134b6961161545b868eb82a36"
+    },
+    {
+      "path": "app/src/main/assets/vocabulary/cet6.txt",
+      "sha256": "b0204df4217e21c860e0faa3263f9706a71f7983b38d7a93e39cbea789650d5b"
+    },
+    {
+      "path": "app/src/main/assets/vocabulary/ECDICT-LICENSE.txt",
+      "sha256": "f8552dd246f61a4e064569eae6194a01c6b3d63b03bf27c6ca863593c549ed0f"
+    },
+    {
+      "path": "app/src/main/assets/vocabulary/ielts.txt",
+      "sha256": "3632d20434322faa63b6770827931cccb6cc7afcf0536c68c9b46678edc5ada6"
+    },
+    {
+      "path": "app/src/main/assets/vocabulary/manifest.json",
+      "sha256": "cd29c4d092274eb91984c3f050e2d267e780d464e314bee3f821d3335a585c9f"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/ConversationConfig.kt",
+      "sha256": "8a033bb0e40cf795298aadbee3f5c8b687ac4e63f8dcc9543cfa636215831be3"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/ConversationSessions.kt",
+      "sha256": "04a8021a59b0b34cdb98237b4bc7266e66e3cc6cfb16402968bf0f5fb042f79e"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/LearningMessages.kt",
+      "sha256": "4b25140cfaf5ced6581c662564d8b917509b021cbdacc926ae07601e97602ad1"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/LearningOutput.kt",
+      "sha256": "042e1c25cba73d90c8110ced8d75567dbd0d52cfc6e6dbefdfea77b14ad0c364"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/LocalStore.kt",
+      "sha256": "cb4f823c2806b7fc2c61bbfb7c22b224564923a39aaf00261689b0562c04e664"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/Models.kt",
+      "sha256": "1bb5bcfcb224f197790ec328d8e811f6df430041897d197723cc48ef43e71acb"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/RecordingStore.kt",
+      "sha256": "98c6c6f1c6c65714cc7f7329bf8e4648ed8d30893c241d418dbeb8fe8bdedeb1"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/ScenarioJson.kt",
+      "sha256": "435fa2942a229cb9683f9486a17d79dacd94e1e8cb73497ec269bb8dbc9f779d"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/ScenarioPresets.kt",
+      "sha256": "09abfce975045aee086bc044cbabf9e4be0e16cbfe4c1ffe02bc77be0ee32e57"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/Scenarios.kt",
+      "sha256": "284292e2ff647686a9be5412bb36c2ef547cdc8a5f6b42d0c7f9a269bd768e63"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/SettingsEditorDraft.kt",
+      "sha256": "a29fb8f05f6c556bff24c4c514a6daaccb1f0afd2fbd35b7b5ee0fb0204d6f2a"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/Vocabulary.kt",
+      "sha256": "57621f765028a14465ea0cb918145e9beab24b8df3328e729ec4ac3825050167"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/VocabularyImport.kt",
+      "sha256": "9274a88351679971e4c2dd7f7cb0e9db7683e1cddf1663d4ca80c991a312f273"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/VocabularyStore.kt",
+      "sha256": "ff41b2f36e15e8de1fccbb40286ed56985e04d7011095437ef0ddbfed3cb0066"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/data/VoiceMessages.kt",
+      "sha256": "571fbcc0bfc320a19068dea334223d91a8da44fad4fb6b7792296e788624cc95"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/MainActivity.kt",
+      "sha256": "d7dbc0e10fb91bd7a6b4e1ed16f2128918b4e04e8b3b98e4494798a9a922bf87"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/AiClient.kt",
+      "sha256": "f3a818221c3d791fc8b2f04b1faf2112bbf92488e53727aeca572425eeb37369"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ApiProtocol.kt",
+      "sha256": "d9f921161e6ffd820e388eeb5bacc65a697d3334e509012b92d4a49b027e3ba0"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ChatStreamParser.kt",
+      "sha256": "700abe4190fd790fc8e1bb2b7096c8d324e389df930f77d30223c7bbecaac914"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ConversationPrompts.kt",
+      "sha256": "6dd364138ccc5a7046a32b67b8c930a73e1ee556a03df24b3cf7e2c83404d554"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/LearningPrompts.kt",
+      "sha256": "e591ed08e38ac83d1c94ade32def51d04a07d90640d282a25eef15f0a4abc886"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ManagedService.kt",
+      "sha256": "7794785709e14b58c7ecf566579f45109dddfcf09fa011fd19b71bc781a612d6"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ScenarioProtocol.kt",
+      "sha256": "352314e3312944da9ff717e6d6c27d4a5ea63dd45ed058a514b2594962337831"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/ServicePairing.kt",
+      "sha256": "bf1b242cd7a321c4437685be7b4a8402ec53784c579e2d12f08b588214bc78df"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/TunnelDns.kt",
+      "sha256": "a89249f0e8ac32546adba47f784480bddfb335aa3de64de33f198e3bfbaf63ff"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/network/VocabularyPrompts.kt",
+      "sha256": "26e7507d0d67f1187e22ab0313e6761e9e587d00b5233b67b93f4ce8ec6fb696"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/PracticeViewModel.kt",
+      "sha256": "1e6f18fc13ca70f8684c45b3d038ce8c153d7e49616eec93c98994ad2e98dc94"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/SettingsNavigation.kt",
+      "sha256": "31d2110b084ce245cfa8308b048e02fa1a36614fd072a1071d2a15d67be78087"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/SettingsUpdates.kt",
+      "sha256": "c1c62d436e80420de07415c5b02f11793c36d915829b0c0edffa425345ae9983"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/speech/SpeechController.kt",
+      "sha256": "7511b351ce3726d3e9616343f6a67e07e525fb931b370eecea2c5c4e1bca13cb"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/speech/SystemSpeechSession.kt",
+      "sha256": "bd361df7193557ebcafd893a5d4e895f3f2756eaf00700b8620348c39b68b38f"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/ChatScreen.kt",
+      "sha256": "80c286c66f16867349b788331c6ac2410916accb909a91c7769f39baadd85291"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/ConversationSettings.kt",
+      "sha256": "db09a822c075e437bc00691ea97267d26beb618f50cfee5e92e7ac0d9a7a492a"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/Dialogs.kt",
+      "sha256": "3deb45b56e737f55a1b0cc346a7c21e74ad69ef462c4a8b710f92e5b8272578f"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/LibraryScreen.kt",
+      "sha256": "ad8c19cc37be0df4cbe637975d7b5b1de192f8ac0225a7cb99affa730b0e8d32"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/Navigation.kt",
+      "sha256": "6fafc171ed4c75eceef240b42a0edc5a9a8f16eff314d37ef567e21a0982407b"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/SettingsScreen.kt",
+      "sha256": "b7080e8374f84e76675958d4cfaa522be377bed850250f6df4a8e2aa7fa48620"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/Theme.kt",
+      "sha256": "3e75e6efff9c268e8ac25d23620556f59a8a786c7cdf54512204966ff383059d"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/TopicSuggestions.kt",
+      "sha256": "c4dfc6e80f99d9e9b4bdea4444c9c279c42902807a52b45d5fa13da2013518c4"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/VocabularyScreen.kt",
+      "sha256": "5ce8eaa4be30cd40ec5baf4f8dd3f152aa3fe31a7e86b15b69c7b30758a02575"
+    },
+    {
+      "path": "app/src/main/java/com/speakpen/app/ui/VoiceComponents.kt",
+      "sha256": "8a4bd851ea1d108c74fc61c05c3ba4e71244e5d63f7c5ab79299d349248ea339"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher.xml",
+      "sha256": "05f46700871b7f9611a4aaf52318d6dd50d37e5f54e273ed86f036eedd1a005e"
+    },
+    {
+      "path": "app/src/main/res/font/nunito_bold.ttf",
+      "sha256": "2ff1544d575cd14d3fa7f71ee5349b7f9f609c95d123d92864342d70ce9a89d1"
+    },
+    {
+      "path": "app/src/main/res/font/nunito_extra_bold.ttf",
+      "sha256": "55a412d58a8f997f9624d0b46f20017ea6c0549dfb53a7de212eadcfc5ddbdf2"
+    },
+    {
+      "path": "app/src/main/res/font/nunito_regular.ttf",
+      "sha256": "056899e6fad68f3ba400ea1ae9d1a156e52c6839fca08bf141372e2821f2adb5"
+    },
+    {
+      "path": "app/src/main/res/values/styles.xml",
+      "sha256": "f3ea4bc9719d05f7671977c53799b8ba764bb4dff863900c930d018efe9c9666"
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "sha256": "bc716d89b3397b3219e9b12ffc11a5c400b5a98cc98b672ff7235b1cbb25b7a1"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/AiClientContractTest.kt",
+      "sha256": "567a473274069a3d9bf707cd6339ea6bea3a784d518ab11075ff1a06c05ea43f"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ApiProtocolTest.kt",
+      "sha256": "c2800c68d4bb3e1e87b38034c81c58f0ab59216dfb44c167cb673d15183f6095"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ConversationConfigTest.kt",
+      "sha256": "4c86d23e5ba44f4c731ae9da6d7ffc445382ca0aaa761f306a2d6384b4c1d85b"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/LearningActionsTest.kt",
+      "sha256": "df743e52915bd69888effdcee20f45308118dd14037979bc4f2e40450a5d69d0"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/LearningDataTest.kt",
+      "sha256": "9321d1df42e72b48be20f1dae378ba4017903c9873bcb643411ab64cca74391b"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ManagedServiceClientTest.kt",
+      "sha256": "5f8b1ac2e6bc6ad9f2d27a8dd5f9fd53fd68b8af88ebf804cf7ced03b9c79b1b"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/NavigationRegressionTest.kt",
+      "sha256": "b1f2d95c204ee98b7aa0e38b2d4b9d592d60c01f119f90364bd8d317ee50c04b"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ReportedBugsTest.kt",
+      "sha256": "551a44023dc575e8fb32697ea5529326247b67751602f2e31dbdb4532059b043"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ScenarioStateTest.kt",
+      "sha256": "66d6e4ff238dfb4d63c2f020cd7c9b66aab3e119acda643917f6f63ed3c0d765"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/ServicePairingTest.kt",
+      "sha256": "11528e54831010b2dfb4630ca0c86616fdf19ffdf8074df5fd25ec6ed74a67c5"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/SettingsAndHintsRegressionTest.kt",
+      "sha256": "c2d65b6200e1741e1132149c11010948366325e7cecd3ae7778f95308bfc3653"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/TunnelDnsTest.kt",
+      "sha256": "a90e23ea808098625f20ea968034358ea2ddb7501ffb079e7207afa14214bd07"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/VocabularyTest.kt",
+      "sha256": "d172f40b71b7fce6bcfaca45e19ea9bf8b0fa6c52c85b301d85bec2b6b899ae9"
+    },
+    {
+      "path": "app/src/test/java/com/speakpen/app/VoiceAndStreamingTest.kt",
+      "sha256": "092101fa2536340548cb0bd73a37b674a74252faad89090a99b13c3dd6636d89"
+    },
+    {
+      "path": "build.gradle.kts",
+      "sha256": "791e244ef7bdf7c5e65ea7f17d2d9e2bea0fb86118304413cfe54a7dabf0098a"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "498495120a03b9a6ab5d155f5de3c8f0d986a449153702fb80fc80e134484f17"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "a076c65d08dfeb507fadb8b9a00b4c355b63c25886f6e1bb6c9e352400c0e8b8"
+    },
+    {
+      "path": "gradle.properties",
+      "sha256": "1e62d3072e36d83cc22c1dcb6faa7709193a7388302207c6649fc8190025632c"
+    },
+    {
+      "path": "gradlew",
+      "sha256": "1d50e8ff7b9319536a703d4e25eb524ce52b08ed6f0aff1e7c18b611520ac084"
+    },
+    {
+      "path": "gradlew.bat",
+      "sha256": "e3050c5932b2d4a5a5acae7dc8784bc4b66244c52406a5fc168fd927d228bca4"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "sha256": "cbc2421e1a9d4e142ddc3959aaffde52d7c84fa1079fd785a44ba47643957d64"
+    }
+  ],
+  "note": "Raw source hashes include original line endings; Git stores canonical content through its normal text filters."
+}
