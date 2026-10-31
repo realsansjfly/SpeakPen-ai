@@ -56,7 +56,19 @@ class LearningFeaturesTest {
     }
     @Test fun structuredScaffoldRequiresBilingualLayersAndBlankSkeleton() {
         assertEquals(3, LearningFeatureProtocol.parseScaffold("""{"keywords":"coffee：咖啡", "skeleton":"I'd like ___. 填入饮品。", "reference":"I'd like coffee. 我想要咖啡。"}""").size)
+        assertEquals(3, LearningFeatureProtocol.parseScaffold("""{"keywords":"journal：日记", "skeleton":"I prefer to <记录方式> because... 说明原因。", "reference":"I prefer to keep a journal because it helps me remember small moments. 我更喜欢写日记，因为它能帮我记住小事。"}""").size)
         rejected { LearningFeatureProtocol.parseScaffold("""{"keywords":"coffee", "skeleton":"I like it.", "reference":"Hello"}""") }
+    }
+    @Test fun scaffoldAcceptsPairedPlaceholdersButRejectsAnUnmatchedBracketOrEllipsis() {
+        for (skeleton in listOf("I prefer [an activity]. 填入活动。", "I prefer {活动}. 填入活动。", "I prefer 【活动】. 填入活动。")) {
+            val raw = JSONObject().put("keywords", "prefer：更喜欢").put("skeleton", skeleton)
+                .put("reference", "I prefer walking. 示例：我更喜欢散步。").toString()
+            assertEquals(skeleton, LearningFeatureProtocol.parseScaffold(raw)[1])
+        }
+        for (skeleton in listOf("I prefer walking... 我更喜欢散步。", "I prefer [walking. 我更喜欢散步。")) {
+            rejected { LearningFeatureProtocol.parseScaffold(JSONObject().put("keywords", "prefer：更喜欢")
+                .put("skeleton", skeleton).put("reference", "I prefer walking. 我更喜欢散步。").toString()) }
+        }
     }
     @Test fun practiceStartsWithoutAddingConversationAndKeepsOriginalAndReference() {
         val s = session().copy(messages = session().messages + optimized())

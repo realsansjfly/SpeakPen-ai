@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-31",
+  "versionName": "0.6.0-dev07",
+  "versionCode": 14,
+  "applicationId": "com.speakpen.app",
+  "apkSha256": "b731d05f18205b37c63e7dbb0e4922b97c328be662a9f8567dfc8ac6d6d5c23a",
+  "apkBytes": 17646293,
+  "signerSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "sameSignerAsDev06": true,
+  "unpaired": true,
+  "knownCredentialScan": "pass",
+  "matchingSourceInputs": 87,
+  "buildMirror": "C:\\Users\\Realsansjfly\\AppData\\Local\\Temp\\SpeakPen-build-137d81db",
+  "android": {
+    "tests": 170,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "node": "not rerun: no server code changes",
+  "realServiceStatus": [
+    {
+      "route": "local",
+      "status": 200,
+      "pass": true,
+      "elapsedMs": 7,
+      "dnsFallback": false,
+      "sameLocalInstance": true
+    },
+    {
+      "route": "phone-public",
+      "status": 200,
+      "pass": true,
+      "elapsedMs": 973,
+      "dnsFallback": false,
+      "sameLocalInstance": true
+    }
+  ],
+  "paidAiAsrTests": "not run",
+  "deviceTests": "not run: adb has no device",
+  "scope": "Stronger scaffold output contract, common placeholder compatibility, explicit failure messages",
+  "limit": "Original failed model response unavailable; exact rejected field and live fix effectiveness unverified"
+}

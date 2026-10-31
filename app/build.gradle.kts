@@ -11,8 +11,8 @@ android {
         applicationId = "com.speakpen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.6.0-dev06"
+        versionCode = 14
+        versionName = "0.6.0-dev07"
         val serviceUrl = providers.gradleProperty("speakpen.serviceUrl").orElse(providers.environmentVariable("SPEAKPEN_BACKEND_URL")).orElse("").get().trim().trimEnd('/')
         require(serviceUrl.isEmpty() || serviceUrl.startsWith("https://")) { "Use an HTTPS service URL." }
         buildConfigField("String", "SERVICE_BASE_URL", "\"${serviceUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
