@@ -37,6 +37,7 @@ object ScenarioJson {
         put("turns", array(value.turns) { JSONObject().put("userMessageId", it.userMessageId).put("replyMessageId", it.replyMessageId) })
         value.assessment?.let { put("assessment", assessment(it)) }; put("corrections", array(value.corrections, ::correction))
         put("checkStatus", value.checkStatus.name); put("checkError", value.checkError); put("goalsCollapsed", value.goalsCollapsed)
+        put("completionPresented", value.completionPresented)
         value.ending?.let { end -> put("ending", JSONObject().apply {
             put("reason", end.reason.name); put("succeeded", end.succeeded); put("at", end.at); put("boundaryMessageId", end.boundaryMessageId)
             put("messages", array(end.messages, DataJson::messageToJson)); end.assessment?.let { put("assessment", assessment(it)) }
@@ -54,6 +55,7 @@ object ScenarioJson {
             assessment = json.optJSONObject("assessment")?.let(::readAssessment), corrections = DataJson.objects(json.getJSONArray("corrections")).map(::readCorrection),
             checkStatus = ScenarioCheckStatus.valueOf(json.getString("checkStatus")), checkError = json.optString("checkError"),
             goalsCollapsed = json.optBoolean("goalsCollapsed"), ending = end,
+            completionPresented = json.optBoolean("completionPresented", end != null),
         )
     }
     fun success(value: ScenarioSuccess) = JSONObject().put("practiceId", value.practiceId).put("templateId", value.templateId).put("sessionId", value.sessionId).put("at", value.at)

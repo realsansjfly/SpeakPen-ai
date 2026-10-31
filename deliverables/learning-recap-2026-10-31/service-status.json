@@ -1,0 +1,8 @@
+{
+  "local": 200,
+  "public": 200,
+  "localReady": true,
+  "publicReady": true,
+  "sameInstance": true,
+  "paidRequests": 0
+}

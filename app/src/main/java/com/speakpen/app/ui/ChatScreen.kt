@@ -38,10 +38,14 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
     LaunchedEffect(session.id, state.draft) { if (state.draft.isNotBlank()) typing = true }
     var editing by remember { mutableStateOf<ChatMessage?>(null) }
     var actionMessage by remember { mutableStateOf<ChatMessage?>(null) }
+    var moreVisible by remember { mutableStateOf(false) }
+    var practiceHistoryVisible by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
     val displayMessages = remember(session.messages) { LearningMessages.display(session.messages) }
-    LaunchedEffect(session.id, session.messages.size, state.busy, state.scrollToMessageId) {
+    // Side corrections should not pull the reader away from their current position.
+    val scrollMessageCount = session.messages.count { it.hintKind != HintKind.CORRECTION }
+    LaunchedEffect(session.id, scrollMessageCount, state.busy, state.scrollToMessageId) {
         val anchor = state.scrollToMessageId ?: state.operationAnchorId
         val anchoredIndex = displayMessages.indexOfFirst { it.id == anchor }
         val count = displayMessages.size + if (state.busy != null || state.streamingText.isNotBlank()) 1 else 0
@@ -49,9 +53,12 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
         else if (count > 0) listState.animateScrollToItem(count - 1)
         state.scrollToMessageId?.let(vm::scrollConsumed)
     }
+    Box(Modifier.fillMaxSize()) {
+    ConversationBackdrop(active = visible && state.appForeground && !state.voiceActive && state.playingId == null &&
+        !state.recapVisible && state.speakingPracticeId == null && !state.scenarioPickerVisible, modifier = Modifier.matchParentSize())
     Column(Modifier.fillMaxSize()) {
         ChatHeader(state, vm, onOpenDrawer, !state.voiceActive && !state.settingsSaving, state.busy == null && !state.voiceActive)
-        if (session.mode == ConversationMode.REVIEW) Text("目标 · " + state.library.filter { it.id in session.targetIds }.joinToString(" · ") { it.content },
+        if (session.mode == ConversationMode.REVIEW) Text("练习目标：" + state.library.filter { it.id in session.targetIds }.joinToString("、") { it.content },
             Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2)
         session.scenario?.let { practice -> ScenarioPanel(state, vm, practice) }
         HorizontalDivider(color = Line)
@@ -100,9 +107,17 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             TextButton(onClick = vm::reply) { Text("重试") }
         }
         if (session.messages.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = vm::redo, enabled = !locked && session.messages.any { it.role == "user" }) { Text("重说") }
+            TextButton(onClick = vm::layeredHint, enabled = !locked) { Text("表达提示") }
             TextButton(onClick = vm::topicExpressions, enabled = !locked && session.messages.any { it.isConversation && it.text.isNotBlank() }) { Text("话题语料") }
-            TextButton(onClick = vm::summarize, enabled = !locked) { Text("收藏好表达") }
+            TextButton(onClick = { vm.showRecaps(true, RecapKind.LATEST) }, enabled = !state.voiceActive) { Text("复盘") }
+            Box {
+                IconButton(onClick = { moreVisible = true }) { Icon(Icons.Outlined.MoreHoriz, "更多学习操作") }
+                DropdownMenu(expanded = moreVisible, onDismissRequest = { moreVisible = false }) {
+                    DropdownMenuItem(text = { Text("回退上一轮") }, enabled = !locked && session.messages.any { it.role == "user" }, onClick = { moreVisible = false; vm.redo() })
+                    DropdownMenuItem(text = { Text("收藏好表达") }, onClick = { moreVisible = false; vm.summarize() })
+                    DropdownMenuItem(text = { Text("练习录音") }, enabled = session.speakingPractices.isNotEmpty(), onClick = { moreVisible = false; practiceHistoryVisible = true })
+                }
+            }
         }
         if (!state.scenarioReadOnly) Surface(color = Color.White) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
@@ -131,22 +146,34 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
                     Icon(Icons.Outlined.StopCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("停止播放")
                 }
                 if (typing) TextButton(onClick = { vm.inputKind(if (state.inputKind == InputKind.HELP) InputKind.ENGLISH else InputKind.HELP) }, enabled = !locked) {
-                    Text(if (state.inputKind == InputKind.HELP) "中文求助中 · 切回英文" else "中文求助")
+                    Text(if (state.inputKind == InputKind.HELP) "切回英文" else "中文求助")
                 }
                 if (state.recording) Waveform(Modifier.fillMaxWidth().height(22.dp).padding(horizontal = 80.dp, vertical = 3.dp), active = true, level = state.recordingLevel, color = MaterialTheme.colorScheme.primary)
-                else if (!typing) Text("松开发送 · 上滑取消", style = MaterialTheme.typography.labelSmall, color = Muted,
+                else if (!typing) Text("松开发送，上滑取消", style = MaterialTheme.typography.labelSmall, color = Muted,
                     modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
             }
         }
     }
+    if (visible && state.appForeground) ScenarioReward(state, vm)
+    }
+    LearningOverlays(state, vm, onRecord)
+    if (practiceHistoryVisible) AlertDialog(onDismissRequest = { practiceHistoryVisible = false }, title = { Text("练习录音") }, text = {
+        LazyColumn { items(session.speakingPractices.asReversed(), key = { it.id }) { p ->
+            TextButton(onClick = { vm.showSpeakingPractice(p.id); practiceHistoryVisible = false }, enabled = state.busy == null && !state.voiceActive) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(p.reference, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(if (p.sentMessageId.isNotBlank()) "已发送" else if (p.audioFileName.isBlank()) "尚未录音" else "${VoiceMessages.displaySeconds(p.audioDurationMs)} 秒", color = Muted)
+                }
+            }
+        } }
+    }, confirmButton = { TextButton(onClick = { practiceHistoryVisible = false }) { Text("关闭") } })
 
     actionMessage?.let { selected ->
         val usable = selected.text.isNotBlank()
         AlertDialog(onDismissRequest = { actionMessage = null }, title = { Text(if (selected.isHint) "提示操作" else "消息操作") },
             text = { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (selected.isHint) "提示不进入对话上下文" else "仅针对选中的这一块", color = Muted, style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { actionMessage = null; vm.identifyExpressions(selected.id) }, enabled = usable && !locked, modifier = Modifier.fillMaxWidth()) { Text("识别好表达") }
-                TextButton(onClick = { clipboard.setText(AnnotatedString(selected.text)); actionMessage = null }, enabled = usable, modifier = Modifier.fillMaxWidth()) { Text("复制") }
+                TextButton(onClick = { clipboard.setText(AnnotatedString(if (selected.hintLayers.isNotEmpty()) selected.hintLayers.take(selected.revealedLayers).joinToString("\n\n") else selected.text)); actionMessage = null }, enabled = usable, modifier = Modifier.fillMaxWidth()) { Text("复制") }
                 TextButton(onClick = { actionMessage = null; if (selected.role == "user") vm.optimizeExpression(selected.id) else vm.regenerate(selected.id) }, enabled = usable && !locked, modifier = Modifier.fillMaxWidth()) {
                     Text(if (selected.role == "user") "优化表达" else "重新生成")
                 }
@@ -188,12 +215,15 @@ private fun ScenarioPanel(state: PracticeState, vm: PracticeViewModel, practice:
             }
             } }
             when (practice.phase) {
-                ScenarioPhase.ACTIVE -> if (!practice.goalsCollapsed) Text("已完成 ${practice.turns.size}${practice.template.maxTurns?.let { "/$it" } ?: ""} 轮 · 结束条件由 AI 依据消息检查", color = Muted, style = MaterialTheme.typography.bodySmall)
+                ScenarioPhase.ACTIVE -> if (!practice.goalsCollapsed) Text("已完成 ${practice.turns.size}${practice.template.maxTurns?.let { "/$it" } ?: ""} 轮", color = Muted, style = MaterialTheme.typography.bodySmall)
                 ScenarioPhase.ENDED -> {
                     Text(if (practice.ending?.succeeded == true) "场景目标已达成" else "场景已结束，未计入成功", color = if (practice.ending?.succeeded == true) MaterialTheme.colorScheme.primary else Muted)
-                    Button(onClick = vm::continueScenario) { Text("继续对话") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(onClick = vm::continueScenario, enabled = state.busy == null) { Text("继续对话") }
+                        TextButton(onClick = { vm.showRecaps(true, RecapKind.SCENARIO) }) { Text("场景复盘") }
+                    }
                 }
-                ScenarioPhase.CONTINUED -> Text("已转为自由对话；原场景统计不再变化。", color = Muted, style = MaterialTheme.typography.bodySmall)
+                ScenarioPhase.CONTINUED -> if (!practice.goalsCollapsed) TextButton(onClick = { vm.showRecaps(true, RecapKind.SCENARIO) }) { Text("查看场景复盘") }
             }
             if (practice.checkStatus == ScenarioCheckStatus.FAILED) {
                 Text(practice.checkError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -231,13 +261,26 @@ private fun MessageCard(message: ChatMessage, state: PracticeState, vm: Practice
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Icon(Icons.Outlined.Lightbulb, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Text("提示 · ${message.hintKind?.label ?: "学习辅助"}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        Text(message.hintKind?.label ?: "学习辅助", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
                         IconButton(onClick = { vm.hintCollapsed(message.id, !message.hintCollapsed) }, modifier = Modifier.size(40.dp)) {
                             Icon(if (message.hintCollapsed) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess, if (message.hintCollapsed) "展开提示" else "收起提示")
                         }
                     }
-                    if (!message.hintCollapsed) Text(message.text, style = MaterialTheme.typography.bodyLarge)
-                    Text(if (message.hintCollapsed) "已折叠 · 点击展开，长按可操作" else "仅供参考，不进入对话上下文 · 点击收起，长按可操作", style = MaterialTheme.typography.labelSmall, color = Muted)
+                    if (!message.hintCollapsed) {
+                        val current = LearningFeatures.hintCurrent(state.session, message)
+                        if (message.hintLayers.isNotEmpty()) {
+                            message.hintLayers.take(message.revealedLayers).forEachIndexed { index, layer ->
+                                if (index > 0) HorizontalDivider(color = Sky.copy(alpha = .15f))
+                                Text(listOf("关键词", "句子骨架", "参考表达")[index], style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary)
+                                Text(layer, style = MaterialTheme.typography.bodyLarge)
+                            }
+                            if (message.revealedLayers < message.hintLayers.size) TextButton(onClick = { vm.revealHint(message.id) }, enabled = current) {
+                                Text(if (message.revealedLayers == 1) "查看句子骨架" else "查看参考表达")
+                            }
+                        } else Text(message.text, style = MaterialTheme.typography.bodyLarge)
+                        if (!current) Text("对话或原句已变化，请重新获取提示。", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                        if (message.hintKind == HintKind.OPTIMIZE) TextButton(onClick = { vm.openSpeakingPractice(message.id) }, enabled = current && state.busy == null && !state.voiceActive) { Text("重说练习") }
+                    }
                 }
             }
         }
@@ -276,6 +319,8 @@ private fun MessageCard(message: ChatMessage, state: PracticeState, vm: Practice
                 TextButton(onClick = { vm.transcribe(message.id) }, enabled = state.busy == null) { Text("重试转写") }
                 TextButton(onClick = onEdit, enabled = state.busy == null) { Text("补充文字") }
             }
+            if (user && state.correctionPendingId == message.id) Text("正在检查表达…", color = Muted, style = MaterialTheme.typography.bodySmall)
+            if (user && state.correctionFailedId == message.id) TextButton(onClick = { vm.retryCorrection(message.id) }, enabled = state.busy == null) { Text("纠错未完成，重试") }
         }
         if (user) { Spacer(Modifier.width(8.dp)); Box(Modifier.size(32.dp).background(SoftGreen, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, Modifier.size(20.dp), tint = Muted) } }
     }

@@ -42,7 +42,7 @@ object ApiProtocol {
             val evidence = when {
                 message?.role == "user" && message.markedStuck -> "用户标记卡壳"
                 message?.role == "user" && message.inputKind == InputKind.HELP -> "中文求助"
-                else -> "AI 建议 · 请确认"
+                else -> "AI 建议，请确认"
             }
             ReviewCandidate(ReviewItem(
                 kind = ReviewKind.entries.firstOrNull { it.name == json.optString("kind").uppercase() } ?: ReviewKind.PHRASE,

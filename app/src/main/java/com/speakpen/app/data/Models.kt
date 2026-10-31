@@ -8,7 +8,7 @@ fun newId(): String = UUID.randomUUID().toString()
 enum class ConversationMode(val label: String) { FREE("自由对话"), SCENARIO("场景对话"), REVIEW("复习对话") }
 enum class InputKind { ENGLISH, HELP }
 enum class SpeechMode(val label: String) { SYSTEM("系统语音识别"), CLOUD("云端录音转写") }
-enum class HintKind(val label: String) { OPTIMIZE("优化表达"), TOPIC("话题语料") }
+enum class HintKind(val label: String) { OPTIMIZE("优化表达"), TOPIC("话题语料"), SCAFFOLD("表达提示"), CORRECTION("纠错建议") }
 enum class ReviewKind(val label: String) { WORD("词汇"), PHRASE("表达"), TOPIC("话题") }
 
 data class ApiConfig(val baseUrl: String = "https://api.openai.com/v1", val apiKey: String = "", val model: String = "")
@@ -30,6 +30,8 @@ data class ChatMessage(
     val generationConfig: ConversationConfig? = null, val configRevision: Int = 0,
     val hintCollapsed: Boolean = false,
     val scenarioOpening: Boolean = false, val replyToMessageId: String = "",
+    val hintLayers: List<String> = emptyList(), val revealedLayers: Int = 1,
+    val hintContextDigest: String = "", val practiceReference: String = "",
 ) {
     val isHint: Boolean get() = role == "hint"
     val isConversation: Boolean get() = role == "user" || role == "assistant"
@@ -40,6 +42,8 @@ data class ChatSession(
     val createdAt: Long = System.currentTimeMillis(), val updatedAt: Long = createdAt,
     val config: ConversationConfig = ConversationConfig(), val configRevision: Int = 0,
     val scenario: ScenarioPractice? = null, val draft: String = "",
+    val speakingPractices: List<SpeakingPractice> = emptyList(),
+    val latestRecap: RecapDocument? = null, val fixedRecap: RecapDocument? = null,
 )
 data class ReviewItem(
     val id: String = newId(), val kind: ReviewKind = ReviewKind.PHRASE,
@@ -62,7 +66,7 @@ object ReviewSchedule {
 
 object DataJson {
     fun write(data: SavedData): String = JSONObject().apply {
-        put("version", 3); put("currentSessionId", data.currentSessionId)
+        put("version", 4); put("currentSessionId", data.currentSessionId)
         put("sessions", JSONArray().apply { data.sessions.forEach { put(sessionToJson(it)) } })
         put("library", JSONArray().apply { data.library.forEach { put(itemToJson(it)) } })
         put("scenarioTemplates", JSONArray().apply { data.scenarioTemplates.forEach { put(ScenarioJson.template(it)) } })
@@ -94,6 +98,9 @@ object DataJson {
         put("id", session.id); put("title", session.title); put("mode", session.mode.name)
         put("draft", session.draft); put("config", ConversationConfigJson.write(session.config)); put("configRevision", session.configRevision)
         session.scenario?.let { put("scenario", ScenarioJson.practice(it)) }
+        put("speakingPractices", JSONArray().apply { session.speakingPractices.forEach { put(LearningFeatureJson.practice(it)) } })
+        session.latestRecap?.let { put("latestRecap", RecapJson.write(it)) }
+        session.fixedRecap?.let { put("fixedRecap", RecapJson.write(it)) }
         put("targetIds", JSONArray(session.targetIds)); put("createdAt", session.createdAt); put("updatedAt", session.updatedAt)
         put("messages", JSONArray().apply { session.messages.forEach { put(messageToJson(it)) } })
     }
@@ -106,6 +113,8 @@ object DataJson {
             message.generationConfig?.let { put("generationConfig", ConversationConfigJson.write(it)) }
             put("configRevision", message.configRevision)
             put("hintCollapsed", message.hintCollapsed)
+            put("hintLayers", JSONArray(message.hintLayers)); put("revealedLayers", message.revealedLayers)
+            put("hintContextDigest", message.hintContextDigest); put("practiceReference", message.practiceReference)
             put("scenarioOpening", message.scenarioOpening); put("replyToMessageId", message.replyToMessageId)
             put("audioFileName", message.audioFileName); put("audioDurationMs", message.audioDurationMs); put("transcriptState", message.transcriptState.name)
     }
@@ -113,6 +122,9 @@ object DataJson {
         id = json.getString("id"), title = json.optString("title", "练习"), mode = enumOr(json.optString("mode"), ConversationMode.FREE),
         config = ConversationConfigJson.read(json.optJSONObject("config")), configRevision = json.optInt("configRevision").coerceAtLeast(0),
         scenario = json.optJSONObject("scenario")?.let(ScenarioJson::readPractice), draft = json.optString("draft"),
+        speakingPractices = objects(json.optJSONArray("speakingPractices")).map(LearningFeatureJson::readPractice),
+        latestRecap = json.optJSONObject("latestRecap")?.let(RecapJson::read),
+        fixedRecap = json.optJSONObject("fixedRecap")?.let(RecapJson::read),
         targetIds = json.optJSONArray("targetIds")?.let { array -> (0 until array.length()).map { array.getString(it) } } ?: emptyList(),
         messages = objects(json.optJSONArray("messages")).map(::messageFromJson),
         createdAt = json.optLong("createdAt"), updatedAt = json.optLong("updatedAt"),
@@ -128,6 +140,9 @@ object DataJson {
             generationConfig = message.optJSONObject("generationConfig")?.let(ConversationConfigJson::read),
             configRevision = message.optInt("configRevision").coerceAtLeast(0),
             hintCollapsed = message.optBoolean("hintCollapsed"),
+            hintLayers = message.optJSONArray("hintLayers")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
+            revealedLayers = message.optInt("revealedLayers", 1).coerceIn(1, 3),
+            hintContextDigest = message.optString("hintContextDigest"), practiceReference = message.optString("practiceReference"),
             scenarioOpening = message.optBoolean("scenarioOpening"), replyToMessageId = message.optString("replyToMessageId"),
             hintContextIds = message.optJSONArray("hintContextIds")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
         )

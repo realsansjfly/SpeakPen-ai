@@ -37,7 +37,7 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
                         val json = JSONObject(it.body?.string().orEmpty())
                         check(json.optBoolean("ready")) { "服务未开通。" }
                         val supported = json.optInt("conversationControlsVersion") >= 1
-                        ServiceStatus(if (supported) "已连接 · 千问对话与语音识别" else "已连接 · 本机服务需更新后才能使用高级参数", supported)
+                        ServiceStatus(if (supported) "已连接千问对话与语音识别" else "已连接，本机服务需更新后才能使用高级参数", supported)
                     }
                     if (continuation.isActive) continuation.resume(result)
                 } catch (error: Exception) { if (continuation.isActive) continuation.resumeWithException(error) }
@@ -50,6 +50,16 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
         return ApiProtocol.chatText(request(config, "chat/completions", body))
     }
     suspend fun learning(config: ApiConfig, messages: List<Pair<String, String>>): String = chat(config, messages, "learning")
+    suspend fun structuredLearning(config: ApiConfig, messages: List<Pair<String, String>>, purpose: String = "learning"): String {
+        require(purpose == "learning" || purpose == "summary")
+        val body = JSONObject(ApiProtocol.chatBody(config.model, messages)).put("purpose", purpose).toString()
+            .toRequestBody("application/json; charset=utf-8".toMediaType())
+        val raw = request(config, "chat/completions", body)
+        check(JSONObject(raw).getJSONArray("choices").getJSONObject(0).optString("finish_reason") == "stop") {
+            "生成未完整返回，请重试；原内容已保留。"
+        }
+        return ApiProtocol.chatText(raw)
+    }
     suspend fun vocabularyDefinition(config: ApiConfig, entry: VocabularyEntry): Pair<String, String> {
         val body = JSONObject(ApiProtocol.chatBody(config.model, VocabularyPrompts.definition(entry)))
             .put("purpose", "learning").toString().toRequestBody("application/json; charset=utf-8".toMediaType())

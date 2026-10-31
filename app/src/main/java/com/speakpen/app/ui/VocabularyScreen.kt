@@ -127,13 +127,13 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
                             RadioButton(selected = selection?.id == value.id, onClick = { onChoose(value.selection()); onDismiss() }, enabled = !locked)
                             Column(Modifier.weight(1f).clickable { inspect(value) }.padding(vertical = 10.dp)) {
                                 Text(value.name, style = MaterialTheme.typography.titleSmall)
-                                Text("${value.entries.size} 条 · ${if (value.builtIn) "内置" else "导入"}", color = Muted, style = MaterialTheme.typography.bodySmall)
+                                Text("${value.entries.size} 条，${if (value.builtIn) "内置" else "导入"}", color = Muted, style = MaterialTheme.typography.bodySmall)
                             }
                             TextButton(onClick = { inspect(value) }) { Text("查看") }
                         }
                     }
                     item {
-                        if (selection != null) Text("所选版本：${selection.name} · ${selection.version.take(20)}", style = MaterialTheme.typography.bodySmall, color = Muted)
+                        if (selection != null) Text("所选版本：${selection.name}（${selection.version.take(20)}）", style = MaterialTheme.typography.bodySmall, color = Muted)
                         Button(onClick = { mode = "import"; vm.clearFeedback() }, enabled = !locked, modifier = Modifier.fillMaxWidth()) { Text("导入词库") }
                     }
                 }
@@ -147,7 +147,7 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
                     item { OutlinedTextField(raw, { if (it.toByteArray(Charsets.UTF_8).size <= VocabularyImport.MAX_BYTES) { raw = it; localError = null } else localError = "内容超过 2 MiB，请拆分。" },
                         label = { Text("单词或短语") }, placeholder = { Text(if (format == VocabularyFormat.TXT) "每行一项；可用制表符分隔释义和例句" else "expression,meaning,example,tags") },
                         minLines = 6, maxLines = 12, enabled = !locked, modifier = Modifier.fillMaxWidth()) }
-                    item { Text("UTF-8 · 最多 2 MiB、20,000 条。CSV 可含 expression、meaning、example、tags 表头；无表头时按此顺序。", style = MaterialTheme.typography.bodySmall, color = Muted) }
+                    item { Text("UTF-8 编码，最多 2 MiB、20,000 条。CSV 可含 expression、meaning、example、tags 表头；无表头时按此顺序。", style = MaterialTheme.typography.bodySmall, color = Muted) }
                     item { Button(onClick = { scope.launch {
                         parsing = true; localError = null
                         try { preview = withContext(Dispatchers.Default) { VocabularyImport.parse(raw, format) }; mode = "preview" }
@@ -156,7 +156,7 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
                 }
                 "preview" -> preview?.let { parsed ->
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        item { Text("有效 ${parsed.entries.size} 条 · 重复 ${parsed.duplicates} 条 · 空行 ${parsed.blankLines} 行", style = MaterialTheme.typography.titleSmall) }
+                        item { Text("有效 ${parsed.entries.size} 条，重复 ${parsed.duplicates} 条，空行 ${parsed.blankLines} 行", style = MaterialTheme.typography.titleSmall) }
                         parsed.fatal?.let { fatal -> item { Text(fatal, color = MaterialTheme.colorScheme.error) } }
                         items(parsed.issues.take(50)) { Text("第 ${it.line} 行：${it.reason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         if (parsed.issues.size > 50) item { Text("另有 ${parsed.issues.size - 50} 处错误，请返回修改。") }

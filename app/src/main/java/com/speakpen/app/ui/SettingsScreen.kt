@@ -68,6 +68,10 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
                         advancedEnabled = state.conversationControlsSupported || draft.demoMode, enabled = enabled) { config ->
                         if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = config)) else vm.editConversationSettings(config)
                     }
+                    SettingSwitch("实时纠错", "每轮额外请求一次 AI，建议不自动朗读。", scopedConfig.realtimeCorrection, enabled) { checked ->
+                        val config = scopedConfig.copy(realtimeCorrection = checked)
+                        if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = config)) else vm.editConversationSettings(config)
+                    }
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled) { vocabularyVisible = true; vm.clearFeedback() }, verticalAlignment = Alignment.CenterVertically) {
                         Text("词库增强", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                         Text(scopedConfig.vocabulary?.name ?: "关闭", Modifier.widthIn(max = 190.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -77,6 +81,12 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
                         val updated = scopedConfig.copy(vocabulary = choice)
                         if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = updated)) else vm.editConversationSettings(updated)
                     }, onDismiss = { vocabularyVisible = false })
+                }
+            }
+            item {
+                SettingsSection("学习记录") {
+                    Text("场景成功 ${state.scenarioSuccesses.size} 次", style = MaterialTheme.typography.bodyLarge)
+                    Text("已完成 ${state.scenarioSuccesses.map { it.templateId }.distinct().size} 个不同场景", color = Muted, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             item {

@@ -41,7 +41,7 @@ fun Waveform(modifier: Modifier = Modifier, active: Boolean = false, level: Floa
 
 /** Gesture callbacks are updated without cancelling a press when recording state changes. */
 @Composable
-fun HoldToTalk(enabled: Boolean, recording: Boolean, chinese: Boolean, onStart: () -> Unit, onEnd: () -> Unit, onCancel: () -> Unit, onTap: () -> Unit) {
+fun HoldToTalk(enabled: Boolean, recording: Boolean, chinese: Boolean, onStart: () -> Unit, onEnd: () -> Unit, onCancel: () -> Unit, onTap: () -> Unit, practice: Boolean = false) {
     var cancelDrag by remember { mutableStateOf(false) }
     val currentStart by rememberUpdatedState(onStart)
     val currentEnd by rememberUpdatedState(onEnd)
@@ -86,7 +86,7 @@ fun HoldToTalk(enabled: Boolean, recording: Boolean, chinese: Boolean, onStart: 
         }, contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Outlined.Mic, null, Modifier.size(21.dp), tint = if (enabled || recording) Ink else Muted)
-            Text(when { cancelDrag -> "松开取消"; recording -> "松开发送 · 上滑取消"; !enabled -> "请稍候…"; chinese -> "按住用中文求助"; else -> "按住说话" }, color = if (enabled || recording) Ink else Muted, style = MaterialTheme.typography.labelLarge)
+            Text(when { cancelDrag -> "松开取消"; recording -> if (practice) "松开保存，上滑取消" else "松开发送，上滑取消"; !enabled -> "请稍候…"; chinese -> "按住用中文求助"; else -> "按住说话" }, color = if (enabled || recording) Ink else Muted, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

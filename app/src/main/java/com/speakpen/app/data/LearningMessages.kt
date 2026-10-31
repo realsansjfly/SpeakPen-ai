@@ -5,9 +5,9 @@ object LearningMessages {
         require(hint.isHint) { "只能添加学习提示。" }
         if (hint.hintKind == HintKind.TOPIC) LearningOutput.topic(hint.text)
         val source = session.messages.indexOfFirst { it.id == hint.sourceMessageId && it.role == "user" }
-        val index = if (hint.hintKind == HintKind.OPTIMIZE && source >= 0) {
+        val index = if (hint.hintKind in setOf(HintKind.OPTIMIZE, HintKind.CORRECTION) && source >= 0) {
             source + 1 + session.messages.drop(source + 1).takeWhile {
-                it.isHint && it.hintKind == HintKind.OPTIMIZE && it.sourceMessageId == hint.sourceMessageId
+                it.isHint && it.hintKind in setOf(HintKind.OPTIMIZE, HintKind.CORRECTION) && it.sourceMessageId == hint.sourceMessageId
             }.size
         } else session.messages.size
         val messages = session.messages.toMutableList().apply { add(index, hint) }
@@ -17,7 +17,7 @@ object LearningMessages {
     /** Repositions old optimization hints for display without rewriting or dropping old data. */
     fun display(messages: List<ChatMessage>): List<ChatMessage> {
         val userIds = messages.filter { it.role == "user" }.map { it.id }.toSet()
-        val attached = messages.filter { it.isHint && it.hintKind == HintKind.OPTIMIZE && it.sourceMessageId in userIds }
+        val attached = messages.filter { it.isHint && it.hintKind in setOf(HintKind.OPTIMIZE, HintKind.CORRECTION) && it.sourceMessageId in userIds }
             .groupBy { it.sourceMessageId }
         val attachedIds = attached.values.flatten().map { it.id }.toSet()
         return messages.filterNot { it.id in attachedIds }.flatMap { message ->

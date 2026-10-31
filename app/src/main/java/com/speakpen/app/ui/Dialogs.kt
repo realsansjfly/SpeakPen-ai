@@ -44,8 +44,7 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
             items(ConversationSessions.history(state.sessions), key = { it.id }) { session ->
                 Column(Modifier.fillMaxWidth().clickable { vm.selectSession(session.id) }.padding(vertical = 12.dp)) {
                     Text(session.title, style = MaterialTheme.typography.titleMedium)
-                    Text("${session.mode.label} · ${session.messages.count { it.role == "user" }} 次表达 · ${dateLabel(session.updatedAt)}", style = MaterialTheme.typography.bodyMedium, color = Muted)
-                    if (session.id == state.currentSessionId) Eyebrow("当前练习")
+                    Text("${session.mode.label}，${session.messages.count { it.role == "user" }} 次表达，${dateLabel(session.updatedAt)}", style = MaterialTheme.typography.bodyMedium, color = Muted)
                 }
                 HorizontalDivider()
             }
@@ -60,7 +59,7 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
                         val toggle = { if (item.id in selected) selected = selected - item.id else if (selected.size < 5) selected = selected + item.id }
                         Row(Modifier.fillMaxWidth().clickable(onClick = toggle).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = item.id in selected, onCheckedChange = { toggle() })
-                            Column { Text(item.content, style = MaterialTheme.typography.titleMedium); Text(item.kind.label + if (item.meaning.isBlank()) "" else " · ${item.meaning}", style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2) }
+                            Column { Text(item.content, style = MaterialTheme.typography.titleMedium); Text(item.kind.label + if (item.meaning.isBlank()) "" else "：${item.meaning}", style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2) }
                         }
                     }
                 }
@@ -78,7 +77,6 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
                         Row(verticalAlignment = Alignment.Top) {
                             Checkbox(checked = candidate.selected, onCheckedChange = { vm.candidateSelected(candidate.item.id, it) })
                             Column(Modifier.weight(1f)) {
-                                Eyebrow(candidate.item.kind.label)
                                 Text(candidate.item.content, style = MaterialTheme.typography.titleMedium)
                                 Text(candidate.item.meaning, color = Muted, style = MaterialTheme.typography.bodyMedium)
                                 if (candidate.item.example.isNotBlank()) Text(candidate.item.example, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
@@ -101,10 +99,14 @@ private fun ScenarioPicker(state: PracticeState, vm: PracticeViewModel) {
     val templates = (ScenarioPresets.all + state.scenarioTemplates).distinctBy { it.id }
     AlertDialog(onDismissRequest = { vm.showScenarios(false) }, title = { Text("开始场景练习") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("六项场景配置会保存为本次练习快照。结束条件满足或轮数到限后自动结束。", color = Muted)
             templates.forEach { template ->
                 OutlinedButton(onClick = { vm.startScenario(template) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) { Text(template.name); Text("${template.aiRole} · ${template.userRole}", color = Muted, style = MaterialTheme.typography.bodySmall) }
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+                        Text(template.name)
+                        Text("AI：${template.aiRole}；我：${template.userRole}", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        val count = state.scenarioSuccesses.count { it.templateId == template.id }
+                        if (count > 0) Text("已完成 $count 次", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             TextButton(onClick = { vm.editScenario(ScenarioTemplate()) }, modifier = Modifier.fillMaxWidth()) { Text("自建场景") }
@@ -115,15 +117,15 @@ private fun ScenarioPicker(state: PracticeState, vm: PracticeViewModel) {
 private fun ScenarioEditor(initial: ScenarioTemplate, onDismiss: (ScenarioTemplate?) -> Unit, onSave: (ScenarioTemplate) -> Unit) {
     var value by remember(initial.id) { mutableStateOf(initial) }
     var goals by remember(initial.id) { mutableStateOf(initial.goals.joinToString("\n") { it.text }) }
-    AlertDialog(onDismissRequest = { onDismiss(null) }, title = { Text("自建场景 · 六项配置") },
+    AlertDialog(onDismissRequest = { onDismiss(null) }, title = { Text("自建场景") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(value.name, { value = value.copy(name = it) }, label = { Text("场景名称／情境") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.aiRole, { value = value.copy(aiRole = it) }, label = { Text("AI 角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.userRole, { value = value.copy(userRole = it) }, label = { Text("我的角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(goals, { goals = it }, label = { Text("目标清单 · 每行一项") }, minLines = 3, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value.opening, { value = value.copy(opening = it) }, label = { Text("开场白 · 可留空由 AI 生成") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(goals, { goals = it }, label = { Text("目标清单（每行一项）") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.opening, { value = value.copy(opening = it) }, label = { Text("开场白（留空由 AI 生成）") }, minLines = 2, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.endCondition, { value = value.copy(endCondition = it) }, label = { Text("自然语言结束条件") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value.maxTurns?.toString().orEmpty(), { value = value.copy(maxTurns = it.toIntOrNull()) }, label = { Text("轮数上限 · 可留空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value.maxTurns?.toString().orEmpty(), { value = value.copy(maxTurns = it.toIntOrNull()) }, label = { Text("轮数上限（可选）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         } },
         confirmButton = { TextButton(onClick = { onSave(value.copy(goals = goals.lines().map { ScenarioGoal(text = it.trim()) }.filter { it.text.isNotBlank() })) }) { Text("保存") } },
         dismissButton = { TextButton(onClick = { onDismiss(null) }) { Text("取消") } })

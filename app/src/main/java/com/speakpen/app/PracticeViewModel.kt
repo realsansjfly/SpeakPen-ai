@@ -32,6 +32,9 @@ data class PracticeState(
     val scenarioPickerVisible: Boolean = false, val scenarioEditor: ScenarioTemplate? = null,
     val vocabularyBooks: List<VocabularyBook> = emptyList(), val vocabularySaving: Boolean = false,
     val vocabularySuggestion: VocabularySuggestion? = null,
+    val speakingPracticeId: String? = null, val recapVisible: Boolean = false, val recapKind: RecapKind = RecapKind.LATEST,
+    val scenarioReviewPromptId: String? = null, val rewardPracticeId: String? = null,
+    val correctionPendingId: String? = null, val correctionFailedId: String? = null,
 ) {
     val settingsDirty: Boolean get() = settingsDraft?.let { SettingsUpdates.merge(settings, it) != settings } == true ||
         conversationDraft?.let { draft -> sessions.firstOrNull { it.id == settingsSessionId }?.config?.let { it != draft } } == true
@@ -61,7 +64,9 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private val ai = AiClient()
     private val stored = store.readData()
     private val saved = ConversationSessions.normalize(stored.copy(sessions = stored.sessions.map { session ->
-        val restored = session.copy(messages = session.messages.map(VoiceMessages::restore))
+        val restored = session.copy(messages = session.messages.map(VoiceMessages::restore), speakingPractices = session.speakingPractices.map {
+            if (it.transcriptState == TranscriptState.PENDING) it.copy(transcriptState = TranscriptState.FAILED) else it
+        })
         if (restored.scenario?.checkStatus == ScenarioCheckStatus.PENDING) Scenarios.checkFailed(restored) else restored
     }))
     private val preferences = store.readSettings()
@@ -85,6 +90,9 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private var speechJob: Job? = null
     private var speechGeneration = 0
     private var statusJob: Job? = null
+    private var correctionJob: Job? = null
+    private var correctionGeneration = 0
+    private var practiceRecordingId: String? = null
     private val speech = SpeechController(application,
         onFile = { file, kind, duration -> acceptRecording(file, kind, duration) },
         onPhase = { phase -> mutable.update { it.copy(speechPhase = phase) } },
@@ -154,7 +162,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             val token = operationGeneration
             val (meaning, example) = ai.vocabularyDefinition(ManagedService.config(state.value.settings), entry)
             if (token == operationGeneration) mutable.update { it.copy(vocabularySuggestion = VocabularySuggestion(
-                book.id, book.version, entry.id, meaning, example, "AI 补充 · 应用服务 · ${System.currentTimeMillis()}")) }
+                book.id, book.version, entry.id, meaning, example, "AI 补充，应用服务，时间：${System.currentTimeMillis()}")) }
         }
     }
     fun confirmVocabularyMeaning(onComplete: (VocabularyBook?) -> Unit) {
@@ -213,6 +221,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun inputKind(kind: InputKind) { if (!state.value.voiceActive && state.value.busy == null) mutable.update { it.copy(inputKind = kind) } }
     fun clearFeedback() { mutable.update { it.copy(error = null, notice = null) } }
     fun error(message: String) { mutable.update { it.copy(error = message) } }
+    fun recapExported() { mutable.update { it.copy(notice = "复盘已导出。") } }
     fun preferences(value: AppSettings): Boolean {
         if (state.value.settingsSaving) return false
         return try {
@@ -269,6 +278,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (state.value.busy != null || state.value.voiceActive) return
         template.validationError()?.let { error(it); return }
         val current = state.value
+        cancelCorrection(); clearLearningSurfaces()
         val session = Scenarios.start(template, current.settings.conversationDefaults)
         mutable.update { it.copy(sessions = listOf(session) + it.sessions, currentSessionId = session.id, page = 0,
             scenarioPickerVisible = false, scenarioEditor = null, draft = "", error = null, notice = "已开始场景：${template.name}" ) }
@@ -307,9 +317,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         operation = viewModelScope.launch {
             try {
                 val assessment = if (state.value.settings.demoMode) demoScenarioAssessment(session) else ai.scenarioAssessment(ManagedService.config(state.value.settings), session)
-                if (generation == operationGeneration && snapshot.matches(state.value.session)) updateSession(Scenarios.assess(session, assessment))
+                if (generation == operationGeneration && snapshot.matches(state.value.session)) updateSession(Scenarios.assess(state.value.session, assessment))
             } catch (_: CancellationException) { throw CancellationException() }
-            catch (error: Exception) { if (generation == operationGeneration && snapshot.matches(state.value.session)) updateSession(Scenarios.checkFailed(session).copy(scenario = session.scenario?.copy(checkError = error.message ?: "判定失败"))) }
+            catch (error: Exception) { if (generation == operationGeneration && snapshot.matches(state.value.session)) {
+                val failed = Scenarios.checkFailed(state.value.session)
+                updateSession(failed.copy(scenario = failed.scenario?.copy(checkError = error.message ?: "判定失败")))
+            } }
             finally { if (generation == operationGeneration) mutable.update { it.copy(busy = null) } }
         }
     }
@@ -323,6 +336,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (state.value.busy != null || state.value.voiceActive || state.value.settingsSaving) return
         val selected = state.value.sessions.firstOrNull { it.id == id } ?: return
         stopSpeaking()
+        cancelCorrection()
+        clearLearningSurfaces()
         mutable.update { it.copy(currentSessionId = id, draft = selected.draft, candidates = null, historyVisible = false,
             inputKind = InputKind.ENGLISH, error = null, streamingText = "", operationAnchorId = null, scrollToMessageId = null) }
         persist()
@@ -332,6 +347,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (mode == ConversationMode.SCENARIO) { showScenarios(true); return }
         if (mode == ConversationMode.REVIEW && targets.isEmpty()) { showTargets(true); return }
         stopSpeaking()
+        cancelCorrection()
+        clearLearningSurfaces()
         val current = state.value
         val started = ConversationSessions.start(SavedData(current.sessions, current.library, current.currentSessionId), mode, targets, current.settings.conversationDefaults)
         mutable.update { it.copy(sessions = started.sessions, currentSessionId = started.currentSessionId, page = 0,
@@ -350,6 +367,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         reply()
     }
     private fun appendUser(message: ChatMessage) {
+        cancelCorrection()
         val session = state.value.session
         updateSession(session.copy(messages = session.messages + message,
             title = if (session.messages.isEmpty()) message.text.take(26).ifBlank { "语音练习" } else session.title,
@@ -390,6 +408,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         updateSession(Scenarios.recordTurn(latest.copy(messages = latest.messages + message, updatedAt = System.currentTimeMillis()), userId, message.id))
         mutable.update { it.copy(streamingText = "") }
         if (state.value.settings.autoSpeak && foreground) playMessage(message)
+        requestCorrection(userId, snapshot.config)
         checkScenario()
     }
     fun markStuck(id: String) {
@@ -405,9 +424,169 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (state.value.scenarioReadOnly || Scenarios.frozen(session, message.id)) return
         stopSpeaking()
         updateSession(Scenarios.rewind(session, index))
-        session.messages.drop(index).forEach { recordings.remove(it.audioFileName) }
+        cancelCorrection()
+        session.messages.drop(index).forEach { old ->
+            val referenced = state.value.sessions.any { s -> s.messages.any { it.audioFileName == old.audioFileName } ||
+                s.speakingPractices.any { it.audioFileName == old.audioFileName } || s.scenario?.ending?.messages?.any { it.audioFileName == old.audioFileName } == true }
+            if (!referenced) recordings.remove(old.audioFileName)
+        }
         mutable.update { it.copy(draft = if (message.audioFileName.isBlank()) message.text else "", inputKind = message.inputKind,
             streamingText = "", notice = "上一轮已回退，可以重新说一遍。") }
+    }
+    fun layeredHint() {
+        if (state.value.scenarioReadOnly || !canUseService()) return
+        val session = state.value.session
+        val context = session.messages.filter { it.isConversation && it.text.isNotBlank() }.takeLast(8)
+        if (context.isEmpty()) { error("先开启对话，再获取表达提示。"); return }
+        val existing = session.messages.lastOrNull { it.hintKind == HintKind.SCAFFOLD && LearningFeatures.hintCurrent(session, it) }
+        if (existing != null) {
+            hintCollapsed(existing.id, false)
+            mutable.update { it.copy(scrollToMessageId = existing.id) }; return
+        }
+        runOperation("准备表达提示…") {
+            val snapshot = vocabularySnapshot(session); val token = operationGeneration
+            val layers = if (state.value.settings.demoMode) listOf("think：思考；moment：片刻", "Could you give me ___?\n填入你需要的时间。", "Could you give me a moment to think?\n示例：能给我一点时间想一想吗？") else
+                LearningFeatureProtocol.parseScaffold(ai.structuredLearning(ManagedService.config(state.value.settings),
+                    LearningFeatureProtocol.scaffold(session.copy(messages = context, config = snapshot.config))))
+            if (!isCurrent(snapshot, token)) return@runOperation
+            appendHint(session.id, ChatMessage(role = "hint", text = layers.first(), hintKind = HintKind.SCAFFOLD,
+                sourceMessageId = context.last().id, hintContextIds = context.map { it.id }, hintContextDigest = LearningFeatures.contextDigest(context),
+                hintLayers = layers, generationConfig = snapshot.config, configRevision = snapshot.configRevision))
+        }
+    }
+    fun revealHint(id: String) { updateSession(LearningFeatures.reveal(state.value.session, id)) }
+    private fun cancelCorrection() {
+        correctionGeneration++; correctionJob?.cancel()
+        mutable.update { it.copy(correctionPendingId = null, correctionFailedId = null) }
+    }
+    private fun clearLearningSurfaces() { practiceRecordingId = null; mutable.update { it.copy(speakingPracticeId = null, recapVisible = false,
+        scenarioReviewPromptId = null, rewardPracticeId = null) } }
+    fun retryCorrection(id: String) {
+        val config = state.value.session.messages.firstOrNull { it.replyToMessageId == id }?.generationConfig ?: state.value.session.config
+        requestCorrection(id, config)
+    }
+    private fun requestCorrection(id: String, config: ConversationConfig) {
+        if (!config.realtimeCorrection) return
+        val session = state.value.session
+        val selected = session.messages.firstOrNull { it.id == id && it.role == "user" } ?: return
+        if (selected.inputKind == InputKind.HELP || selected.text.isBlank()) return
+        cancelCorrection()
+        val token = correctionGeneration
+        val digest = LearningFeatures.contextDigest(session.messages)
+        val settings = state.value.settings
+        mutable.update { it.copy(correctionPendingId = id) }
+        correctionJob = viewModelScope.launch {
+            fun current() = token == correctionGeneration && state.value.currentSessionId == session.id &&
+                LearningFeatures.contextDigest(state.value.session.messages) == digest
+            try {
+                val text = if (settings.demoMode) "" else LearningFeatureProtocol.parseCorrection(ai.structuredLearning(
+                    ManagedService.config(settings), LearningFeatureProtocol.correction(session, selected, config)), selected)
+                if (current() && text.isNotBlank()) {
+                    val context = LearningPrompts.contextBefore(session, id) + selected
+                    val hint = ChatMessage(role = "hint", text = text, hintKind = HintKind.CORRECTION, sourceMessageId = id,
+                        hintContextIds = context.map { it.id }, hintContextDigest = LearningFeatures.contextDigest(context), generationConfig = config)
+                    // Do not scroll, play speech or replace the role reply when the side request completes.
+                    val latest = state.value.session
+                    updateSession(LearningMessages.append(latest.copy(messages = latest.messages.filterNot {
+                        it.hintKind == HintKind.CORRECTION && it.sourceMessageId == id && it.hintContextDigest == hint.hintContextDigest
+                    }), hint))
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { if (current()) mutable.update { it.copy(correctionFailedId = id) } }
+            finally { if (token == correctionGeneration) mutable.update { it.copy(correctionPendingId = null) } }
+        }
+    }
+    fun openSpeakingPractice(hintId: String) {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val session = state.value.session
+        try {
+            val draft = LearningFeatures.beginPractice(session, hintId)
+            val old = session.speakingPractices.lastOrNull { it.hintId == hintId && it.hintRevision == draft.hintRevision && it.sentMessageId.isBlank() }
+            val practice = old ?: draft
+            if (old == null) updateSession(session.copy(speakingPractices = session.speakingPractices + practice))
+            mutable.update { it.copy(speakingPracticeId = practice.id) }
+        } catch (e: Exception) { error(e.message ?: "无法开始练习。") }
+    }
+    fun showSpeakingPractice(id: String?) {
+        if (state.value.voiceActive || state.value.busy != null) return
+        practiceRecordingId = null
+        stopSpeaking(); mutable.update { it.copy(speakingPracticeId = id) }
+    }
+    private fun updatePractice(practice: SpeakingPractice) {
+        val s = state.value.session
+        if (s.speakingPractices.none { it.id == practice.id }) return
+        updateSession(s.copy(speakingPractices = s.speakingPractices.map { if (it.id == practice.id) practice else it }))
+    }
+    private fun startPracticeRecording() {
+        val current = state.value
+        val p = current.session.speakingPractices.firstOrNull { it.id == current.speakingPracticeId } ?: return
+        if (current.voiceActive || current.busy != null || p.sentMessageId.isNotBlank()) return
+        if (!canUseService()) return
+        stopSpeaking(); practiceRecordingId = p.id
+        speech.start(SpeechMode.CLOUD, InputKind.ENGLISH)
+    }
+    private fun acceptPracticeRecording(id: String, file: File, duration: Long) {
+        if (state.value.session.speakingPractices.none { it.id == id }) { file.delete(); return }
+        try {
+            val name = recordings.save(file)
+            val (updated, practice) = LearningFeatures.recordPractice(state.value.session, id, name, duration)
+            updateSession(updated)
+            mutable.update { it.copy(speakingPracticeId = practice.id) }
+            transcribePractice(practice.id)
+        } catch (_: Exception) { file.delete(); error("练习录音保存失败，请重试。") }
+    }
+    fun transcribePractice(id: String) {
+        val s = state.value.session; val p = s.speakingPractices.firstOrNull { it.id == id } ?: return
+        if (p.audioFileName.isBlank() || p.sentMessageId.isNotBlank() || !canUseService()) return
+        runOperation("转写练习录音…") {
+            updatePractice(p.copy(transcriptState = TranscriptState.PENDING))
+            val token = operationGeneration
+            try {
+                val text = if (state.value.settings.demoMode) "" else ai.transcribe(ManagedService.config(state.value.settings), recordings.file(p.audioFileName), InputKind.ENGLISH, emptyList())
+                check(text.isNotBlank()) { "未完成真实转写，可回听并手动补充文字。" }
+                if (token == operationGeneration && state.value.currentSessionId == s.id) updatePractice(p.copy(transcript = text, transcriptState = TranscriptState.READY))
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { if (token == operationGeneration && state.value.currentSessionId == s.id) updatePractice(p.copy(transcriptState = TranscriptState.FAILED)); throw e }
+        }
+    }
+    fun practiceTranscript(id: String, text: String) {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val p = state.value.session.speakingPractices.firstOrNull { it.id == id && it.sentMessageId.isBlank() } ?: return
+        updatePractice(p.copy(transcript = text.take(4000), transcriptState = if (text.isBlank()) TranscriptState.NONE else TranscriptState.READY))
+    }
+    fun playPractice(id: String) {
+        val p = state.value.session.speakingPractices.firstOrNull { it.id == id } ?: return
+        if (p.audioFileName.isNotBlank()) playMessage(ChatMessage(id = p.id, role = "user", text = p.transcript, audioFileName = p.audioFileName))
+    }
+    fun sendPractice(id: String) {
+        val current = state.value
+        if (current.busy != null || current.voiceActive || current.scenarioInputBlocked || current.needsReply || current.pendingVoice != null || !canUseService()) return
+        val p = current.session.speakingPractices.firstOrNull { it.id == id } ?: return
+        try {
+            cancelCorrection()
+            updateSession(LearningFeatures.sendPractice(current.session, p.id))
+            mutable.update { it.copy(speakingPracticeId = null) }; reply()
+        } catch (e: Exception) { error(e.message ?: "发送失败，练习已保留。") }
+    }
+    fun showRecaps(visible: Boolean, kind: RecapKind = state.value.recapKind) { mutable.update { it.copy(recapVisible = visible, recapKind = kind) } }
+    fun finishReward() { mutable.update { it.copy(rewardPracticeId = null) } }
+    fun dismissScenarioReviewPrompt() { mutable.update { it.copy(scenarioReviewPromptId = null) } }
+    fun generateRecap(kind: RecapKind) {
+        if (!canUseService()) return
+        val session = state.value.session
+        val snapshot = try { RecapSnapshot.capture(session, kind) } catch (e: Exception) { error(e.message ?: "无法生成复盘。"); return }
+        runOperation("生成${kind.label}…") {
+            val token = operationGeneration
+            val raw = if (state.value.settings.demoMode) org.json.JSONObject().put("overview", "这是基于本地示例的复盘，不是实际能力评估。")
+                .put("evidence", org.json.JSONArray().put(org.json.JSONObject().put("messageId", snapshot.messages.first().id)
+                    .put("quote", snapshot.messages.first().text.take(60)).put("comment", "对话中的实际文字。")))
+                .put("improvements", org.json.JSONArray()).put("vocabulary", org.json.JSONArray()).toString()
+            else ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.recap(snapshot), "summary")
+            val markdown = LearningFeatureProtocol.parseRecap(raw, snapshot)
+            if (token != operationGeneration || state.value.currentSessionId != session.id) return@runOperation
+            updateSession(snapshot.complete(state.value.session, markdown))
+            mutable.update { it.copy(recapVisible = true, recapKind = kind) }
+        }
     }
     fun summarize() { // The toolbar is intentionally a local, blank editor; no model request.
         mutable.update { it.copy(accumulationEditor = ReviewItem(content = "", sourceSessionId = it.currentSessionId)) }
@@ -426,7 +605,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             if (!isCurrent(snapshot, token)) return@runOperation
             val scoped = session.copy(messages = listOf(selected))
             val candidates = ApiProtocol.summaryCandidates(raw, scoped).map { candidate ->
-                candidate.copy(item = candidate.item.copy(sourceNote = "单条消息 · " + if (selected.isHint) "提示建议" else if (selected.role == "user") "自己的表达" else "AI 回复"))
+                candidate.copy(item = candidate.item.copy(sourceNote = "单条消息：" + if (selected.isHint) "提示建议" else if (selected.role == "user") "自己的表达" else "AI 回复"))
             }
             mutable.update { it.copy(candidates = candidates, notice = if (candidates.isEmpty()) "这条消息没有提取到合适表达，可以手动积累。" else null) }
         }
@@ -439,12 +618,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             val session = state.value.session
             val snapshot = vocabularySnapshot(session, (LearningPrompts.contextBefore(session, id) + selected).joinToString("\n") { it.text }); val token = operationGeneration
             require(selected.text.isNotBlank()) { "请先完成语音转写或补充文字。" }
-            val text = if (state.value.settings.demoMode) "A more natural way to say it:\nI really enjoyed catching up with a friend over coffee.\n\n说明：这是示例优化；保留原意，自然表达。"
-                else ai.learning(ManagedService.config(state.value.settings), LearningPrompts.optimize(session.copy(config = snapshot.config), selected))
+            val result = if (state.value.settings.demoMode) OptimizedExpression("Could you give me a moment to think?", "示例参考句：请求一点思考时间，未分析你的原句。")
+                else LearningFeatureProtocol.parseOptimize(ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.optimize(session.copy(config = snapshot.config), selected)))
             if (!isCurrent(snapshot, token)) return@runOperation
-            appendHint(session.id, ChatMessage(role = "hint", text = text, hintKind = HintKind.OPTIMIZE,
+            val context = LearningPrompts.contextBefore(session, id) + selected
+            appendHint(session.id, ChatMessage(role = "hint", text = result.text, practiceReference = result.reference, hintKind = HintKind.OPTIMIZE,
                 generationConfig = snapshot.config, configRevision = snapshot.configRevision,
-                sourceMessageId = id, hintContextIds = LearningPrompts.contextBefore(session, id).map { it.id }))
+                sourceMessageId = id, hintContextIds = context.map { it.id }, hintContextDigest = LearningFeatures.contextDigest(context)))
         }
     }
     fun topicExpressions() {
@@ -481,14 +661,31 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             val session = state.value.session
             val snapshot = GenerationSnapshot.capture(session); val token = operationGeneration
             val config = selected.generationConfig ?: ConversationConfig()
+            var reference = selected.practiceReference
+            var layers = selected.hintLayers
             val text = if (state.value.settings.demoMode) "${selected.text}\n（重新生成示例）"
             else if (selected.isHint) {
+                require(LearningFeatures.hintCurrent(session, selected)) { "对话或原句已变化，请从当前内容重新获取提示。" }
                 val context = session.messages.filter { it.id in selected.hintContextIds && it.isConversation }
-                val prompts = if (selected.hintKind == HintKind.OPTIMIZE) {
-                    val original = requireNotNull(session.messages.firstOrNull { it.id == selected.sourceMessageId }) { "原消息已不存在。" }
-                    LearningPrompts.optimize(session.copy(messages = context + original, config = config), original)
-                } else LearningPrompts.topic(context, config)
-                ai.learning(ManagedService.config(state.value.settings), prompts)
+                val scoped = session.copy(messages = context, config = config)
+                when (selected.hintKind) {
+                    HintKind.OPTIMIZE -> {
+                        val original = requireNotNull(session.messages.firstOrNull { it.id == selected.sourceMessageId }) { "原消息已不存在。" }
+                        val result = LearningFeatureProtocol.parseOptimize(ai.structuredLearning(ManagedService.config(state.value.settings),
+                            LearningFeatureProtocol.optimize(scoped.copy(messages = context.filterNot { it.id == original.id } + original), original)))
+                        reference = result.reference; result.text
+                    }
+                    HintKind.SCAFFOLD -> {
+                        layers = LearningFeatureProtocol.parseScaffold(ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.scaffold(scoped)))
+                        layers.first()
+                    }
+                    HintKind.CORRECTION -> {
+                        val original = requireNotNull(session.messages.firstOrNull { it.id == selected.sourceMessageId })
+                        LearningFeatureProtocol.parseCorrection(ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.correction(scoped, original, config)), original)
+                            .ifBlank { "这次未发现需要纠正的明确错误。" }
+                    }
+                    else -> ai.learning(ManagedService.config(state.value.settings), LearningPrompts.topic(context, config))
+                }
             } else {
                 val before = session.copy(messages = session.messages.takeWhile { it.id != id })
                 val targets = state.value.library.filter { it.id in session.targetIds }
@@ -497,7 +694,9 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             if (!isCurrent(snapshot, token)) return@runOperation
             stopSpeaking()
             val latest = state.value.sessions.first { it.id == session.id }
-            val replaced = LearningMessages.replace(latest, id, text)
+            val replaced = LearningMessages.replace(latest, id, text).let { replaced -> replaced.copy(messages = replaced.messages.map {
+                if (it.id == id) it.copy(practiceReference = reference, hintLayers = layers, revealedLayers = 1) else it
+            }) }
             updateSession(if (!selected.isHint) Scenarios.invalidateAssessment(replaced) else replaced)
             mutable.update { it.copy(scrollToMessageId = id) }
             mutable.update { it.copy(notice = "已替换此块，其他消息保留。") }
@@ -550,17 +749,24 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun stopSpeaking() { speechGeneration++; speechJob?.cancel(); speech.stopPlayback(); mutable.update { it.copy(preparingVoiceId = null) } }
     fun startRecording() {
         val current = state.value
+        if (current.speakingPracticeId != null) { startPracticeRecording(); return }
         if (current.scenarioInputBlocked) return
         if (current.busy != null || current.voiceActive) return
         if (current.needsReply || current.pendingVoice != null) { error("请先处理上一条消息，或点击重说。"); return }
         if (!canUseService()) return
         mutable.update { it.copy(error = null, notice = null) }
         stopSpeaking()
+        practiceRecordingId = null
         speech.start(SpeechMode.CLOUD, current.inputKind)
     }
-    fun stopRecording() = speech.stop()
-    fun cancelRecording() { speech.cancel(); mutable.update { it.copy(notice = "已取消，这段录音没有发送。") } }
+    fun stopRecording() { speech.stop(); if (!state.value.voiceActive) practiceRecordingId = null }
+    fun cancelRecording() { speech.cancel(); practiceRecordingId = null; mutable.update { it.copy(notice = "已取消，这段录音没有发送。") } }
     private fun acceptRecording(file: File, kind: InputKind, duration: Long) {
+        practiceRecordingId?.let { id ->
+            practiceRecordingId = null
+            acceptPracticeRecording(id, file, duration)
+            return
+        }
         if (state.value.scenarioInputBlocked) { file.delete(); return }
         try {
             val filename = recordings.save(file)
@@ -614,18 +820,23 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun foreground() { foreground = true; mutable.update { it.copy(appForeground = true) } }
     fun background() {
         foreground = false; mutable.update { it.copy(appForeground = false) }
-        if (state.value.voiceActive) speech.cancel()
+        if (state.value.voiceActive) { speech.cancel(); practiceRecordingId = null }
         stopSpeaking()
         draftPersistJob?.cancel(); persist()
         if (state.value.page == 2 && (state.value.settingsDirty || state.value.settingsSaveError)) saveSettings()
     }
     fun cancelOperation() {
         operationGeneration++; operation?.cancel()
+        cancelCorrection()
         val session = state.value.session
         if (session.scenario?.needsCheck == true) updateSession(Scenarios.checkFailed(session))
         if (session.messages.any { it.transcriptState == TranscriptState.PENDING }) {
             updateSession(session.copy(messages = session.messages.map(VoiceMessages::restore)))
         }
+        val latest = state.value.session
+        if (latest.speakingPractices.any { it.transcriptState == TranscriptState.PENDING }) updateSession(latest.copy(speakingPractices = latest.speakingPractices.map {
+            if (it.transcriptState == TranscriptState.PENDING) it.copy(transcriptState = TranscriptState.FAILED) else it
+        }))
         mutable.update { it.copy(busy = null, streamingText = "", notice = "请求已取消，消息和原录音已保留。") }
     }
     private fun isCurrent(snapshot: GenerationSnapshot, token: Int): Boolean {
@@ -649,8 +860,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     }
     private fun updateSession(session: ChatSession) {
         mutable.update { current ->
-            val data = Scenarios.settle(SavedData(current.sessions, current.library, current.currentSessionId, current.scenarioTemplates, current.scenarioSuccesses), session)
-            current.copy(sessions = data.sessions, scenarioSuccesses = data.scenarioSuccesses)
+            val before = current.sessions.firstOrNull { it.id == session.id }
+            val justEnded = before?.scenario?.ending == null && session.scenario?.ending != null && session.scenario.completionPresented == false
+            val presented = if (justEnded) session.copy(scenario = session.scenario!!.copy(completionPresented = true)) else session
+            val data = Scenarios.settle(SavedData(current.sessions, current.library, current.currentSessionId, current.scenarioTemplates, current.scenarioSuccesses), presented)
+            current.copy(sessions = data.sessions, scenarioSuccesses = data.scenarioSuccesses,
+                scenarioReviewPromptId = if (justEnded) session.id else current.scenarioReviewPromptId,
+                rewardPracticeId = if (justEnded && session.scenario?.ending?.succeeded == true && current.scenarioSuccesses.none { it.practiceId == session.scenario.practiceId }) session.scenario.practiceId else current.rewardPracticeId)
         }
         persist()
     }
@@ -672,8 +888,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         }
     }
     private fun demoCandidates(session: ChatSession) = listOf(
-        ReviewCandidate(ReviewItem(content = "Could you give me a moment to think?", meaning = "能给我一点时间想一想吗？", example = "That's a good question. Could you give me a moment to think?", sourceSessionId = session.id, sourceNote = "示例内容 · 请确认")),
-        ReviewCandidate(ReviewItem(kind = ReviewKind.WORD, content = "look forward to", meaning = "期待", example = "I'm looking forward to the weekend.", sourceSessionId = session.id, sourceNote = "示例内容 · 请确认")),
+        ReviewCandidate(ReviewItem(content = "Could you give me a moment to think?", meaning = "能给我一点时间想一想吗？", example = "That's a good question. Could you give me a moment to think?", sourceSessionId = session.id, sourceNote = "示例内容，请确认")),
+        ReviewCandidate(ReviewItem(kind = ReviewKind.WORD, content = "look forward to", meaning = "期待", example = "I'm looking forward to the weekend.", sourceSessionId = session.id, sourceNote = "示例内容，请确认")),
     )
     override fun onCleared() { speech.release(); super.onCleared() }
 }

@@ -1,0 +1,184 @@
+[
+  {
+    "candidates": [
+      "accommodation",
+      "available",
+      "comfortable",
+      "convenient",
+      "facility",
+      "luggage"
+    ],
+    "book": "cet4",
+    "count": 6,
+    "topic": "酒店预订 hotel room",
+    "chars": 245
+  },
+  {
+    "candidates": [
+      "candidate",
+      "career",
+      "colleague",
+      "confident",
+      "experience",
+      "opportunity"
+    ],
+    "book": "cet4",
+    "count": 6,
+    "topic": "工作面试 job interview",
+    "chars": 241
+  },
+  {
+    "candidates": [
+      "conserve",
+      "resource",
+      "climate",
+      "pollution"
+    ],
+    "book": "cet4",
+    "count": 4,
+    "topic": "环境 climate pollution",
+    "chars": 157
+  },
+  {
+    "candidates": [
+      "appetite",
+      "delicious",
+      "ingredient",
+      "portion",
+      "recommend"
+    ],
+    "book": "cet4",
+    "count": 5,
+    "topic": "点餐 restaurant meal",
+    "chars": 199
+  },
+  {
+    "candidates": [],
+    "book": "cet4",
+    "count": 0,
+    "topic": "量子纠缠 zxqv",
+    "chars": 2
+  },
+  {
+    "candidates": [
+      "accommodation",
+      "available",
+      "comfortable",
+      "convenient",
+      "facility",
+      "luggage"
+    ],
+    "book": "cet6",
+    "count": 6,
+    "topic": "酒店预订 hotel room",
+    "chars": 245
+  },
+  {
+    "candidates": [
+      "candidate",
+      "colleague",
+      "confident",
+      "experience",
+      "opportunity",
+      "professional"
+    ],
+    "book": "cet6",
+    "count": 6,
+    "topic": "工作面试 job interview",
+    "chars": 247
+  },
+  {
+    "candidates": [
+      "conserve",
+      "ecosystem",
+      "emission",
+      "recycle",
+      "resource",
+      "pollution"
+    ],
+    "book": "cet6",
+    "count": 6,
+    "topic": "环境 climate pollution",
+    "chars": 236
+  },
+  {
+    "candidates": [
+      "appetite",
+      "ingredient",
+      "portion",
+      "recommend"
+    ],
+    "book": "cet6",
+    "count": 4,
+    "topic": "点餐 restaurant meal",
+    "chars": 159
+  },
+  {
+    "candidates": [],
+    "book": "cet6",
+    "count": 0,
+    "topic": "量子纠缠 zxqv",
+    "chars": 2
+  },
+  {
+    "candidates": [
+      "accommodation",
+      "available",
+      "comfortable",
+      "convenient",
+      "facility",
+      "reception"
+    ],
+    "book": "ielts",
+    "count": 6,
+    "topic": "酒店预订 hotel room",
+    "chars": 247
+  },
+  {
+    "candidates": [
+      "candidate",
+      "career",
+      "confident",
+      "experience",
+      "opportunity",
+      "professional"
+    ],
+    "book": "ielts",
+    "count": 6,
+    "topic": "工作面试 job interview",
+    "chars": 244
+  },
+  {
+    "candidates": [
+      "conserve",
+      "recycle",
+      "resource",
+      "pollution"
+    ],
+    "book": "ielts",
+    "count": 4,
+    "topic": "环境 climate pollution",
+    "chars": 157
+  },
+  {
+    "candidates": [
+      "allergy",
+      "appetite",
+      "beverage",
+      "delicious",
+      "ingredient",
+      "portion"
+    ],
+    "book": "ielts",
+    "count": 6,
+    "topic": "点餐 restaurant meal",
+    "chars": 236
+  },
+  {
+    "candidates": [],
+    "book": "ielts",
+    "count": 0,
+    "topic": "量子纠缠 zxqv",
+    "chars": 2
+  }
+]

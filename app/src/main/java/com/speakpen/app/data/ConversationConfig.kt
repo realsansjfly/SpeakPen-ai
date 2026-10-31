@@ -20,11 +20,13 @@ data class ConversationConfig(
     val difficulty: ExpressionDifficulty = ExpressionDifficulty.DAILY,
     val advanced: AdvancedSettings = AdvancedSettings(),
     val vocabulary: VocabularySelection? = null,
+    val realtimeCorrection: Boolean = false,
 )
 
 object ConversationConfigJson {
     fun write(config: ConversationConfig): JSONObject = JSONObject().apply {
-        put("version", 2); put("difficulty", config.difficulty.name)
+        put("version", 3); put("difficulty", config.difficulty.name)
+        put("realtimeCorrection", config.realtimeCorrection)
         config.vocabulary?.let { put("vocabulary", VocabularyJson.selection(it)) }
         put("temperature", config.advanced.temperature); put("replyLength", config.advanced.replyLength.name)
     }
@@ -36,6 +38,7 @@ object ConversationConfigJson {
             difficulty = ExpressionDifficulty.entries.firstOrNull { it.name == json.optString("difficulty") } ?: ExpressionDifficulty.DAILY,
             advanced = AdvancedSettings(temperature, ReplyLength.entries.firstOrNull { it.name == json.optString("replyLength") } ?: ReplyLength.STANDARD),
             vocabulary = json.optJSONObject("vocabulary")?.let(VocabularyJson::readSelection),
+            realtimeCorrection = json.optBoolean("realtimeCorrection", false),
         )
     }
 }
@@ -48,7 +51,8 @@ data class GenerationSnapshot(
     private val messages: List<ChatMessage>,
 ) {
     fun matches(session: ChatSession): Boolean = session.id == sessionId &&
-        session.messages.map { Triple(it.id, it.revision, it.text) } == messages.map { Triple(it.id, it.revision, it.text) }
+        session.messages.filter { it.hintKind != HintKind.CORRECTION }.map { Triple(it.id, it.revision, it.text) } ==
+        messages.filter { it.hintKind != HintKind.CORRECTION }.map { Triple(it.id, it.revision, it.text) }
 
     fun canApply(session: ChatSession, activeSessionId: String, requestGeneration: Int, currentGeneration: Int): Boolean =
         requestGeneration == currentGeneration && activeSessionId == sessionId && matches(session)

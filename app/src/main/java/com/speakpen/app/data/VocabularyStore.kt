@@ -38,9 +38,9 @@ class VocabularyStore(private val context: Context) {
             check(vocabularyHash(raw) == manifest.getJSONObject(tag).getString("sha256")) { "内置词表校验失败。" }
             val entries = VocabularyImport.parse(raw, VocabularyFormat.TXT).entries
             check(entries.size == manifest.getJSONObject(tag).getInt("entries"))
-            VocabularyBook(id = "ecdict-$tag", version = "ecdict-$commit", name = "$name · 社区词表",
-                source = "https://github.com/skywind3000/ECDICT/tree/$commit · $tag 标签",
-                license = "MIT · 仅词形与考试标签；非官方完整大纲", entries = entries, builtIn = true,
+            VocabularyBook(id = "ecdict-$tag", version = "ecdict-$commit", name = "${name}社区词表",
+                source = "https://github.com/skywind3000/ECDICT/tree/$commit（$tag 标签）",
+                license = "MIT；仅词形与考试标签，非官方完整大纲", entries = entries, builtIn = true,
                 createdAt = 0, attribution = notice)
         }
     }

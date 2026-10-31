@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-31",
+  "versionName": "0.6.0-dev05",
+  "versionCode": 12,
+  "applicationId": "com.speakpen.app",
+  "apkBytes": 17609843,
+  "apkSha256": "9db6720a47620d870b6010db3008d0e2d2e4983ed20ff0e02a7f5ad659ae62f4",
+  "signerSha256": "7b0d36c386c7b1db1799d73fa41d67d80fce832d126e9a3ac31d8b1f223dff9f",
+  "sameSignerAsDev04": true,
+  "unpaired": true,
+  "knownCredentialScan": "pass",
+  "buildMirror": "C:\\Users\\Realsansjfly\\AppData\\Local\\Temp\\SpeakPen-build-aa76d57c",
+  "matchingSourceInputs": 76,
+  "android": {
+    "tests": 162,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintIssues": 0,
+  "node": {
+    "tests": 46,
+    "passed": 46,
+    "result": "npm test executed this batch"
+  },
+  "builtInCounts": {
+    "cet4": 3849,
+    "cet6": 5407,
+    "ielts": 5040
+  },
+  "offlineCandidateCases": 15,
+  "realServiceStatus": {
+    "local": 200,
+    "public": 200,
+    "localReady": true,
+    "publicReady": true,
+    "sameInstance": true,
+    "paidRequests": 0
+  },
+  "paidAiAsrTests": "not run",
+  "deviceTests": "not run: adb has no device",
+  "uiEvidence": "HTML flow preview rendered in Edge with Playwright; no Android screenshot",
+  "learningFeaturesTests": 25,
+  "paidAcceptanceFixtures": 4,
+  "markdownSample": "recap-format-sample.md; formatter verification only; device export not tested"
+}

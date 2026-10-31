@@ -29,7 +29,7 @@ fun LibraryScreen(state: PracticeState, vm: PracticeViewModel) {
     val shown = state.library.filter { item -> (kind == null || item.kind == kind) && (item.content.contains(query, true) || item.meaning.contains(query, true)) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) { Text("${state.library.size} 项收藏 · $due 项待复习", color = Muted, style = MaterialTheme.typography.bodyMedium) }
+            Column(Modifier.weight(1f)) { Text("${state.library.size} 项收藏，$due 项待复习", color = Muted, style = MaterialTheme.typography.bodyMedium) }
             FilledIconButton(onClick = { editItem = ReviewItem(content = "") }) { Icon(Icons.Outlined.Add, "手动添加") }
         }
         if (state.library.isNotEmpty()) Button(onClick = { vm.showTargets(true) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), enabled = state.busy == null && !state.voiceActive) {
@@ -52,7 +52,7 @@ fun LibraryScreen(state: PracticeState, vm: PracticeViewModel) {
                 Card(colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White), shape = RoundedCornerShape(18.dp)) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Eyebrow(item.kind.label + " · " + if (item.nextReviewAt <= now) "待复习" else "下次 ${dateLabel(item.nextReviewAt)}", Modifier.weight(1f))
+                            Text(if (item.nextReviewAt <= now) "待复习" else "下次 ${dateLabel(item.nextReviewAt)}", Modifier.weight(1f), color = Muted, style = MaterialTheme.typography.bodySmall)
                             IconButton(onClick = { editItem = item }, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.Edit, "编辑", Modifier.size(18.dp)) }
                             IconButton(onClick = { deletion = item }, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.DeleteOutline, "删除", Modifier.size(18.dp)) }
                         }

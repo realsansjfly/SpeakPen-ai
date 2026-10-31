@@ -44,6 +44,7 @@ data class ScenarioPractice(
     val corrections: List<ScenarioCorrection> = emptyList(),
     val checkStatus: ScenarioCheckStatus = ScenarioCheckStatus.NONE, val checkError: String = "",
     val goalsCollapsed: Boolean = true, val ending: ScenarioEnding? = null,
+    val completionPresented: Boolean = false,
 ) {
     val needsCheck: Boolean get() = phase == ScenarioPhase.ACTIVE && checkStatus in setOf(ScenarioCheckStatus.PENDING, ScenarioCheckStatus.FAILED)
     fun achieved(goalId: String): Boolean = corrections.lastOrNull { it.goalId == goalId }?.achieved
@@ -144,6 +145,5 @@ object Scenarios {
 data class ScenarioCheckSnapshot(val session: ChatSession) {
     fun matches(current: ChatSession): Boolean = current.id == session.id &&
         current.scenario?.practiceId == session.scenario?.practiceId && current.scenario?.revision == session.scenario?.revision &&
-        current.scenario?.phase == ScenarioPhase.ACTIVE && current.messages.map { Triple(it.id, it.revision, it.text) } ==
-        session.messages.map { Triple(it.id, it.revision, it.text) }
+        current.scenario?.phase == ScenarioPhase.ACTIVE && LearningFeatures.contextDigest(current.messages) == LearningFeatures.contextDigest(session.messages)
 }

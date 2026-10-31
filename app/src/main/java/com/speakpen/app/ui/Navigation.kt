@@ -91,7 +91,7 @@ fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: ()
                                     label = { Column(Modifier.padding(vertical = 8.dp)) {
                                         Text(session.draft.takeIf { session.messages.isEmpty() && it.isNotBlank() } ?: session.title,
                                             maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                                        Text(SimpleDateFormat("MM-dd", Locale.CHINA).format(Date(session.updatedAt)) + " · " +
+                                        Text(SimpleDateFormat("MM-dd", Locale.CHINA).format(Date(session.updatedAt)) + "，" +
                                             (if (session.draft.isNotBlank()) "草稿" else when (session.mode) {
                                                 ConversationMode.FREE -> "自由聊天"; ConversationMode.REVIEW -> "收藏练习"; ConversationMode.SCENARIO -> "场景"
                                             }), color = Muted, style = MaterialTheme.typography.bodySmall)

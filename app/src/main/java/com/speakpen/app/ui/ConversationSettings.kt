@@ -34,7 +34,7 @@ fun ConversationControls(config: ConversationConfig, advancedEnabled: Boolean = 
     Row(Modifier.fillMaxWidth().clickable(enabled = enabled) { advancedVisible = !advancedVisible }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("高级设置", style = MaterialTheme.typography.titleMedium)
-            Text("温度 ${String.format(Locale.ROOT, "%.1f", config.advanced.temperature)} · 回复${config.advanced.replyLength.label}", style = MaterialTheme.typography.bodySmall, color = Muted)
+            Text("温度 ${String.format(Locale.ROOT, "%.1f", config.advanced.temperature)}，回复${config.advanced.replyLength.label}", style = MaterialTheme.typography.bodySmall, color = Muted)
         }
         Icon(if (advancedVisible) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, if (advancedVisible) "收起高级设置" else "展开高级设置", tint = Muted)
     }
@@ -55,7 +55,7 @@ fun ConversationControls(config: ConversationConfig, advancedEnabled: Boolean = 
         TextButton(onClick = { onChange(config.copy(advanced = AdvancedSettings())) }, enabled = enabled) { Text("恢复高级设置默认值") }
     }
     }
-    if (difficultyPicker) SettingsChoiceDialog("表达难度", ExpressionDifficulty.entries.map { "${it.label} · ${it.description}" }, config.difficulty.ordinal,
+    if (difficultyPicker) SettingsChoiceDialog("表达难度", ExpressionDifficulty.entries.map { "${it.label}：${it.description}" }, config.difficulty.ordinal,
         onSelect = { onChange(config.copy(difficulty = ExpressionDifficulty.entries[it])); difficultyPicker = false }, onDismiss = { difficultyPicker = false })
     if (lengthPicker) SettingsChoiceDialog("回复长度", ReplyLength.entries.map { it.label }, config.advanced.replyLength.ordinal,
         onSelect = { onChange(config.copy(advanced = config.advanced.copy(replyLength = ReplyLength.entries[it]))); lengthPicker = false }, onDismiss = { lengthPicker = false })
