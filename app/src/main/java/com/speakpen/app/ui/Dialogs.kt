@@ -16,28 +16,53 @@ import com.speakpen.app.PracticeViewModel
 import com.speakpen.app.data.*
 
 @Composable
-fun ReviewEditor(item: ReviewItem, onDismiss: () -> Unit, onSave: (ReviewItem) -> Unit) {
+fun ReviewEditor(item: ReviewItem, onDismiss: () -> Unit, onSave: (ReviewItem) -> Unit,
+                 state: PracticeState? = null, vm: PracticeViewModel? = null, autoLookup: Boolean = false) {
     var kind by remember(item.id) { mutableStateOf(item.kind) }
     var content by remember(item.id) { mutableStateOf(item.content) }
     var meaning by remember(item.id) { mutableStateOf(item.meaning) }
     var example by remember(item.id) { mutableStateOf(item.example) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(if (item.content.isBlank()) "积累好表达" else "编辑复习目标") },
+    val suggestion = state?.meaningSuggestion?.takeIf { it.itemId == item.id }
+    fun composed() = item.copy(kind = kind, content = content.trim(), meaning = meaning.trim(), example = example.trim())
+    val close = { vm?.dismissMeaning(); onDismiss() }
+    LaunchedEffect(item.id, autoLookup) { if (autoLookup && suggestion == null) vm?.requestMeaning(composed()) }
+    AlertDialog(onDismissRequest = close, title = { Text(if (item.content.isBlank()) "积累好表达" else "编辑复习目标") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { ReviewKind.entries.forEach { value -> FilterChip(selected = kind == value, onClick = { kind = value }, label = { Text(value.label) }) } }
                 OutlinedTextField(value = content, onValueChange = { content = it }, label = { Text(if (kind == ReviewKind.TOPIC) "想练的话题" else "英文词汇或表达") }, modifier = Modifier.fillMaxWidth(), maxLines = 3)
                 OutlinedTextField(value = meaning, onValueChange = { meaning = it }, label = { Text("中文释义 / 练习目标") }, modifier = Modifier.fillMaxWidth(), maxLines = 3)
+                state?.error?.let { message -> Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                if (vm != null && meaning.isBlank() && item.aiMeaning.isBlank() && MeaningLookup.queryOf(content) != null) {
+                    TextButton(onClick = { vm?.requestMeaning(composed()) }, enabled = state?.busy == null) {
+                        Text(if (state?.busy != null) "正在查释义…" else "不知道意思？让 AI 查一下")
+                    }
+                }
+                suggestion?.let { value ->
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(if (value.demo) "示例释义（未接入服务）" else "AI 释义，未核对", style = MaterialTheme.typography.labelLarge)
+                            Text(value.meaning, style = MaterialTheme.typography.bodyMedium)
+                            if (value.example.isNotBlank()) Text(value.example, color = Muted, style = MaterialTheme.typography.bodyMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { vm?.dismissMeaning(); onSave(MeaningLookup.apply(composed(), value)) }) { Text("收下") }
+                                TextButton(onClick = { if (meaning.isBlank()) meaning = value.meaning; if (example.isBlank()) example = value.example; vm?.dismissMeaning() }) { Text("填入输入框") }
+                                TextButton(onClick = { vm?.dismissMeaning() }) { Text("丢弃") }
+                            }
+                        }
+                    }
+                }
                 OutlinedTextField(value = example, onValueChange = { example = it }, label = { Text("例句（可选）") }, modifier = Modifier.fillMaxWidth(), maxLines = 4)
             }
-        }, confirmButton = { TextButton(onClick = { onSave(item.copy(kind = kind, content = content.trim(), meaning = meaning.trim(), example = example.trim())) }, enabled = content.isNotBlank()) { Text("保存") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+        }, confirmButton = { TextButton(onClick = { vm?.dismissMeaning(); onSave(composed()) }, enabled = content.isNotBlank()) { Text("保存") } },
+        dismissButton = { TextButton(onClick = close) { Text("取消") } })
 }
 
 @Composable
 fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
     if (state.scenarioPickerVisible) ScenarioPicker(state, vm)
     state.scenarioEditor?.let { ScenarioEditor(it, vm::editScenario, vm::saveScenario) }
-    state.accumulationEditor?.let { item -> ReviewEditor(item, onDismiss = vm::dismissAccumulation, onSave = vm::saveAccumulation) }
+    state.accumulationEditor?.let { item -> ReviewEditor(item, onDismiss = vm::dismissAccumulation, onSave = vm::saveAccumulation, state = state, vm = vm) }
     if (state.historyVisible) AlertDialog(onDismissRequest = { vm.showHistory(false) }, title = { Text("练习记录") },
         text = { LazyColumn(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (ConversationSessions.history(state.sessions).isEmpty()) item { Text("还没有练习记录。发出第一条消息后，对话会出现在这里。", color = Muted) }
@@ -59,7 +84,7 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
                         val toggle = { if (item.id in selected) selected = selected - item.id else if (selected.size < 5) selected = selected + item.id }
                         Row(Modifier.fillMaxWidth().clickable(onClick = toggle).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = item.id in selected, onCheckedChange = { toggle() })
-                            Column { Text(item.content, style = MaterialTheme.typography.titleMedium); Text(item.kind.label + if (item.meaning.isBlank()) "" else "：${item.meaning}", style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2) }
+                            Column { Text(item.content, style = MaterialTheme.typography.titleMedium); Text(item.kind.label + if (item.effectiveMeaning.isBlank()) "" else "：${item.effectiveMeaning}", style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2) }
                         }
                     }
                 }
@@ -78,7 +103,7 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
                             Checkbox(checked = candidate.selected, onCheckedChange = { vm.candidateSelected(candidate.item.id, it) })
                             Column(Modifier.weight(1f)) {
                                 Text(candidate.item.content, style = MaterialTheme.typography.titleMedium)
-                                Text(candidate.item.meaning, color = Muted, style = MaterialTheme.typography.bodyMedium)
+                                Text(candidate.item.effectiveMeaning, color = Muted, style = MaterialTheme.typography.bodyMedium)
                                 if (candidate.item.example.isNotBlank()) Text(candidate.item.example, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
                                 if (candidate.item.reason.isNotBlank()) Text(candidate.item.reason, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
                                 Text(candidate.item.sourceNote, color = Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp), maxLines = 3)
@@ -90,7 +115,7 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
                 }
             } }, confirmButton = { TextButton(onClick = vm::saveCandidates, enabled = candidates.any { it.selected }) { Text("加入复习库 (${candidates.count { it.selected }})") } },
             dismissButton = { TextButton(onClick = vm::dismissCandidates) { Text("暂不收藏") } })
-        editing?.let { item -> ReviewEditor(item, onDismiss = { editing = null }, onSave = { vm.editCandidate(it); editing = null }) }
+        editing?.let { item -> ReviewEditor(item, onDismiss = { editing = null }, onSave = { vm.editCandidate(it); editing = null }, state = state, vm = vm) }
     }
 }
 

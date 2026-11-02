@@ -15,9 +15,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Add
@@ -31,6 +35,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -54,7 +59,7 @@ fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: ()
     val navigateEnabled = !state.voiceActive && !state.settingsSaving
     // Settings return is handled inside its page so an unsaved edit cannot bypass persistence.
     BackHandler(enabled = drawer.isOpen) { scope.launch { drawer.close() } }
-    BackHandler(enabled = state.page == 1 && !drawer.isOpen) { vm.page(0) }
+    BackHandler(enabled = (state.page == 1 || state.page == 3) && !drawer.isOpen) { vm.page(0) }
     val openDrawer = { scope.launch { drawer.open() }; Unit }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val drawerWidth = maxWidth * .75f
@@ -71,10 +76,29 @@ fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: ()
                             Text("本机学习者", style = MaterialTheme.typography.titleLarge)
                             Text("学习记录保存在这台设备", color = Muted, style = MaterialTheme.typography.bodySmall)
                         }
+                        var word by remember { mutableStateOf("") }
+                        val lookup = {
+                            val text = word.trim()
+                            if (text.isNotEmpty()) { word = ""; scope.launch { drawer.close() }; vm.lookupWord(text) }
+                            Unit
+                        }
+                        OutlinedTextField(value = word, onValueChange = { word = it }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            placeholder = { Text("查单词 / 短语", color = Muted) },
+                            leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                            trailingIcon = { TextButton(onClick = lookup, enabled = word.isNotBlank()) { Text("查") } },
+                            shape = RoundedCornerShape(14.dp),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { lookup() }))
+                        Spacer(Modifier.height(6.dp))
                         NavigationDrawerItem(label = { Text("积累库") }, selected = state.page == 1,
                             icon = { Icon(Icons.AutoMirrored.Outlined.MenuBook, null) },
                             modifier = Modifier.padding(horizontal = 12.dp),
                             onClick = { if (navigateEnabled) scope.launch { drawer.close(); vm.page(1) } })
+                        NavigationDrawerItem(label = { Text("单词本") }, selected = state.page == 3,
+                            icon = { Icon(Icons.Outlined.Book, null) },
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            onClick = { if (navigateEnabled) scope.launch { drawer.close(); vm.page(3) } })
                         HorizontalDivider(Modifier.padding(horizontal = 22.dp, vertical = 14.dp), color = Line)
                         Text("历史练习", Modifier.padding(horizontal = 22.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, color = Muted)
                         val history = remember(state.sessions) { ConversationSessions.history(state.sessions) }
@@ -129,11 +153,19 @@ fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: ()
                         }
                         LibraryScreen(state, vm)
                     }
+                    3 -> Column(Modifier.fillMaxSize()) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { vm.page(0) }, enabled = navigateEnabled) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回聊天") }
+                            Text("单词本", style = MaterialTheme.typography.titleLarge)
+                        }
+                        DictionaryScreen(state, vm)
+                    }
                     2 -> SettingsScreen(state, vm)
                 }
             }
         }
     }
+    WordDetailDialog(state, vm)
 }
 
 @Composable

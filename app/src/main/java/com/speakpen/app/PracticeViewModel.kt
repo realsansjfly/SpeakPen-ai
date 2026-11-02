@@ -31,7 +31,9 @@ data class PracticeState(
     val scenarioTemplates: List<ScenarioTemplate> = emptyList(), val scenarioSuccesses: List<ScenarioSuccess> = emptyList(),
     val scenarioPickerVisible: Boolean = false, val scenarioEditor: ScenarioTemplate? = null,
     val vocabularyBooks: List<VocabularyBook> = emptyList(), val vocabularySaving: Boolean = false,
-    val vocabularySuggestion: VocabularySuggestion? = null,
+    val vocabularySuggestion: VocabularySuggestion? = null, val meaningSuggestion: MeaningSuggestion? = null,
+    // 查词弹窗：wordQuery 非空即打开；例句独立于全局 busy，避免演示时整屏被模态进度挡住。
+    val wordQuery: String? = null, val wordExample: String? = null, val wordExampleQuery: String = "", val wordBusy: Boolean = false,
     val speakingPracticeId: String? = null, val recapVisible: Boolean = false, val recapKind: RecapKind = RecapKind.LATEST,
     val scenarioReviewPromptId: String? = null, val rewardPracticeId: String? = null,
     val correctionPendingId: String? = null, val correctionFailedId: String? = null,
@@ -64,8 +66,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private val store = LocalStore(application)
     private val vocabularyStore = VocabularyStore(application)
     private val vocabularyBooks = vocabularyStore.load()
+    /** 内置字典 + 导入词库合成的一张查词表；内置词本的条目自带中文释义。 */
+    private val dictionaryIndex by lazy { DictionaryIndex(vocabularyBooks.flatMap { it.entries }) }
+    private var wordJob: Job? = null
     private val recordings = RecordingStore(application)
     private val ai = AiClient()
+    // 同一次运行内同一表达只查一次：服务端有每日额度上限，查词比聊天更容易把它烧光。
+    private val meaningCache = mutableMapOf<String, Pair<String, String>>()
     private val stored = store.readData()
     private val saved = ConversationSessions.normalize(stored.copy(sessions = stored.sessions.map { session ->
         val restored = session.copy(messages = session.messages.map(VoiceMessages::restore), speakingPractices = session.speakingPractices.map {
@@ -173,6 +180,83 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val suggestion = state.value.vocabularySuggestion ?: return
         val book = state.value.vocabularyBooks.firstOrNull { it.id == suggestion.bookId && it.version == suggestion.version } ?: return
         saveVocabulary(book.supplement(suggestion.entryId, suggestion.meaning, suggestion.example, suggestion.provenance), onComplete)
+    }
+    /**
+     * 积累库的查词入口：只产出建议，不落库；用户确认后才写回条目。
+     * 示例模式返回明确标注的示例释义，与既有 demo 分支同一策略，避免演示时功能不可见。
+     */
+    fun requestMeaning(item: ReviewItem) {
+        val query = MeaningLookup.queryOf(item.content)
+        if (query == null) { error("先填写要查的英文词汇或表达，再查释义。"); return }
+        if (!MeaningLookup.needsLookup(item)) { error("这条已有释义，不会自动覆盖。"); return }
+        if (!canUseService()) return
+        dismissMeaning()
+        meaningCache[query.lowercase()]?.let { cached ->
+            mutable.update { it.copy(meaningSuggestion = MeaningLookup.suggestion(item, cached.first, cached.second,
+                "AI 补充，应用服务，时间：${System.currentTimeMillis()}")) }
+            return
+        }
+        runOperation("查询「${query.take(30)}」的释义…") {
+            val token = operationGeneration
+            val result = if (state.value.settings.demoMode) MeaningLookup.demo(item) else {
+                val (meaning, example) = ai.vocabularyDefinition(ManagedService.config(state.value.settings), query)
+                meaningCache[query.lowercase()] = meaning to example
+                MeaningLookup.suggestion(item, meaning, example, "AI 补充，应用服务，时间：${System.currentTimeMillis()}")
+            }
+            if (token == operationGeneration) mutable.update { it.copy(meaningSuggestion = result) }
+        }
+    }
+    fun dismissMeaning() { mutable.update { it.copy(meaningSuggestion = null) } }
+    /** 抽屉与单词本共用的查词入口：命中本地字典直接开详情，没命中由弹窗走 AI 兜底。 */
+    fun lookupWord(raw: String) {
+        val query = Dictionary.query(raw)
+        if (query == null) { error("请输入要查的英文单词或短语（48 个字符以内）。"); return }
+        wordJob?.cancel()
+        mutable.update { it.copy(wordQuery = query, wordExample = null, wordExampleQuery = "", wordBusy = false) }
+    }
+    fun closeWord() {
+        wordJob?.cancel(); wordJob = null
+        mutable.update { it.copy(wordQuery = null, wordExample = null, wordExampleQuery = "", wordBusy = false) }
+    }
+    fun wordEntry(query: String): VocabularyEntry? = dictionaryIndex.find(query)
+    fun wordSuggestion(query: String): VocabularyEntry? = dictionaryIndex.suggest(query)
+    fun libraryItem(query: String): ReviewItem? =
+        state.value.library.firstOrNull { vocabularyKey(it.content) == vocabularyKey(query) }
+    /** 例句只在用户点按钮时才请求，并复用同一次运行内的释义缓存。 */
+    fun requestWordExample() {
+        val query = state.value.wordQuery ?: return
+        if (wordJob?.isActive == true) return
+        val demo = state.value.settings.demoMode
+        if (!demo && !ManagedService.configured(state.value.settings)) { error("AI 服务尚未开通，可以先到设置中开启示例体验。"); return }
+        meaningCache[vocabularyKey(query)]?.second?.takeIf { it.isNotBlank() }?.let { cached ->
+            mutable.update { it.copy(wordExample = cached, wordExampleQuery = query) }
+            return
+        }
+        wordJob = viewModelScope.launch {
+            mutable.update { it.copy(wordBusy = true) }
+            try {
+                val example = if (demo) MeaningLookup.demo(ReviewItem(content = query)).example else {
+                    val (meaning, value) = ai.vocabularyDefinition(ManagedService.config(state.value.settings), query)
+                    meaningCache[vocabularyKey(query)] = meaning to value
+                    value
+                }
+                if (state.value.wordQuery == query) mutable.update { it.copy(wordExample = example, wordExampleQuery = query) }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { error("例句生成失败，请检查服务连接后重试。") }
+            finally { mutable.update { it.copy(wordBusy = false) } }
+        }
+    }
+    /** 单词本 → 积累库：释义取本地字典，例句取用户主动生成的那条（如果有）。 */
+    fun addWordToLibrary(entry: VocabularyEntry) {
+        if (libraryItem(entry.expression) != null) {
+            mutable.update { it.copy(notice = "「${entry.expression}」已在积累库。") }; return
+        }
+        val level = Dictionary.levelsLabel(entry)
+        upsert(ReviewItem(content = entry.expression,
+            kind = if (entry.expression.contains(' ')) ReviewKind.PHRASE else ReviewKind.WORD,
+            meaning = Dictionary.shortGloss(entry),
+            example = state.value.wordExample?.takeIf { state.value.wordExampleQuery == entry.expression }.orEmpty(),
+            reason = if (level.isEmpty()) "单词本" else "单词本：$level"))
     }
     private fun vocabularySnapshot(session: ChatSession, context: String = session.messages.filter { it.isConversation }
         .takeLast(8).joinToString("\n") { it.text }): GenerationSnapshot {

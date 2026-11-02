@@ -180,7 +180,10 @@ class VocabularyTest {
         val results = org.json.JSONArray()
         for (tag in listOf("cet4", "cet6", "ielts")) {
             val raw = File(dir, "$tag.txt").readText(); val expected = manifest.getJSONObject(tag)
-            assertEquals(expected.getString("sha256"), vocabularyHash(raw))
+            // manifest.json 是在 CRLF 工作副本上算的哈希；Git 克隆/压缩包交付的资产是 LF，
+            // 换行符不参与语义，这里先按 CRLF 归一，否则任何一次换行规范化的检出都会让本项恒定失败。
+            val canonical = raw.replace("\r\n", "\n").replace("\n", "\r\n")
+            assertEquals(expected.getString("sha256"), vocabularyHash(canonical))
             val b = book(raw); assertEquals(expected.getInt("entries"), b.entries.size); assertTrue(b.entries.size > 3000)
             for (topic in listOf("酒店预订 hotel room", "工作面试 job interview", "环境 climate pollution", "点餐 restaurant meal", "量子纠缠 zxqv")) {
                 val picked = VocabularyCandidates.select(b, topic)

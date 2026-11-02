@@ -1,5 +1,26 @@
 # 验证记录与真机验收
 
+## 单词本与内置中文释义 · 通过 · 2026-11-02
+
+新增 `app/src/test/java/com/speakpen/app/DictionaryTest.kt`（9 项）：查询串规范化与拒绝（空、纯中文、超过 48 字符）、表头与 7 列格式强制、`collins` 越界夹取、`shortGloss` 保留词性并取 2~3 个义项、超 34 字符截断、义项分隔符还原换行、级别／星级／词形变化文案、词形回退（studies／studying／goes／Apple）、拼写近似（`apponent`→`opponent`），以及**真实资产一致性**：`dictionary.tsv` 的 sha256 与 `manifest.json` 一致、7,638 行、按小写词序、cet4 3,849／cet6 5,407／ielts 5,040。
+
+**该批已运行**：JDK 17 + Android SDK 35 + Gradle 8.9，`gradle testDebugUnitTest` 后 **187 项、0 失败 0 错误 0 跳过**（18 个测试类：178 项基线 + 9 项新增），报告见 `app/build/reports/tests/testDebugUnitTest/index.html`；`assembleDebug` 通过。
+
+**真机回归（2026-11-02，华为机 1080 宽）**：装 APK 后抽屉查词→词条弹窗可用；发现两处问题。①「a」这类单字母/冠词不在考试词表内，原提示「没有收录」没有解释原因，现单独提示「是单字母：词表只收考试词表里的词」。②点「让 AI 查意思」没有任何反应：`ui/WordDetailDialog.kt` 在组合内直接构造 `ReviewItem`，而 `ReviewItem.id` 默认 `newId()`，每次重组都换 id，导致 `meaningSuggestion.itemId == fallback.id` 永不成立、建议块永不渲染。改为 `remember(query)` 固定 id，并用 `MeaningSuggestion.expression` 兜底匹配；请求在途时按钮显示「正在查…」并禁用。修完 `testDebugUnitTest` 仍 187 项全绿。
+
+**资产来源与边界**：`app/src/main/assets/vocabulary/dictionary.tsv` 由 `scripts/build-dictionary.py` 从 manifest 钉住的 ECDICT commit `ab22ad3` 的 `ecdict.csv`（sha256 `d1ecbdf9…0843cc`，与 manifest 记录一致）生成，7 列（word／phonetic／pos／collins／translation／exchange／tags），770,611 行源数据里按三个考试标签过滤到 7,638 词。许可为 MIT（`assets/vocabulary/ECDICT-LICENSE.txt` 已随包分发）。**这与 `VOCABULARY-BATCH-2026-10-31.md`、`HANDOFF-2026-10-31.md` 里"仅分发词形与标签、不分发词典释义"的原始约定不同**——本次是按需求方明确要求加中文释义，词性由脚本从释义义项前缀推导，仍然不是官方考纲。例句仍未随包分发（ECDICT 的 `detail` 字段上游为空），只能按需调用 AI 生成。
+
+**仍未设备验收**：抽屉查词框、单词本页（LIB-10）、词条详情弹窗（LIB-11）、5,000 行列表滑动、字母分组头、键盘遮挡与 TalkBack 均缺真机记录。
+
+## 积累库查词 · 通过 · 2026-11-01
+
+新增 `app/src/test/java/com/speakpen/app/MeaningLookupTest.kt`（8 项）：AI 释义随 `ReviewItem` 序列化往返、旧本地文件缺字段仍可加载、查询串规范化与拒绝规则、词汇／表达判定、已有释义不重复请求、示例释义不覆盖手填内容、查词请求契约（`purpose=learning`、两条消息、表达作为入参）、`finish_reason=length` 时拒绝采用。
+
+**该批已运行**：JDK 17 + Android SDK 35（platforms;android-35 / build-tools;35.0.0）+ Gradle 8.9，`gradle test --offline` 后 **debug／release 各 178 项、0 失败 0 错误 0 跳过**（170 项基线 + 8 项新增），报告见 `app/build/reports/tests/testDebugUnitTest/index.html`。仍未做设备验收（无设备／模拟器）：`ReviewEditor` 建议块、库页空态查词入口、卡片「不知道意思？查一下」按 [UI 组件清单](UI-COMPONENT-INVENTORY.md) 的 LIB-02／03／04／06 待验收。
+
+**顺带修掉一处恒红**：`VocabularyTest.builtInResourceCountsHashesAndTopicSelectionAreReproducible` 原本在任何 LF 检出上必失败——`assets/vocabulary/manifest.json` 的 `sha256` 是在 CRLF 工作副本上算的，而仓库交付的 `.txt` 是 LF。现在测试先按 CRLF 归一再比对（换行不参与语义），资产与 manifest 本身未改。
+
+
 ## 表达提示格式修复 · dev07 · 2026-10-31
 
 Android **170 项**通过，lint 0，同包名／与 dev06 同签名／Unpaired／凭据扫描与 87 个构建输入核验通过。新增成对占位符兼容、未闭合方括号及省略号拒绝用例，扩展双语提示样例。服务 status 本机／公网均正常，未调用收费 AI／ASR，未重启服务；Node 未改未重跑。无设备，缺少原始失败回包，实际模型成功率与手机验收待补。见 [修复说明](releases/v0.6.0-dev07.md) 和 [核验](../deliverables/hint-fix-2026-10-31/verification.json)。

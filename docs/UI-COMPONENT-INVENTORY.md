@@ -17,7 +17,7 @@
 
 | ID | 模块／位置 | 语义类型 → 当前实现 | 变体／状态与检查点 |
 |---|---|---|---|
-| APP-01 | 页面框架与导航 | App shell＋左侧导航抽屉 → `PracticeNavigation`、`ModalNavigationDrawer`、`AnimatedContent` | 底栏已移除；75% 宽抽屉含本机身份、积累库、时间分组历史和底部设置；独立设置页／库页返回。录音与保存禁用竞争导航，设备返回与手势待验。 |
+| APP-01 | 页面框架与导航 | App shell＋左侧导航抽屉 → `PracticeNavigation`、`ModalNavigationDrawer`、`AnimatedContent` | 底栏已移除；75% 宽抽屉含本机身份、查词框、积累库、单词本、时间分组历史和底部设置；独立设置页／库页返回。录音与保存禁用竞争导航，设备返回与手势待验。 |
 | APP-02 | 页面顶部全局反馈 | Inline alert／Status notice → `InlineNotice` | 错误容器／蓝色普通提示、可关闭；error 优先于 notice。检查是否应更贴近出错区域、读屏更新与持续时间。 |
 | APP-03 | 非聊天页的在途任务 | Inline operation status＋Cancel → `Row`、`TextButton` | busy 非空且不在聊天页时出现。取消操作需要始终可达，避免与其他反馈重复。 |
 | SHARED-01 | 主题、字体、形状 | Design tokens → `SpeakPenTheme`、`MaterialTheme` | 浅色绿白、Nunito、语义色与圆角；更新时检查消费者，不把 Token 值重复写成组件约束。 |
@@ -59,19 +59,22 @@
 
 ## Android：复习库、积累与练习记录
 
-源码：[LibraryScreen.kt](../app/src/main/java/com/speakpen/app/ui/LibraryScreen.kt)、[Dialogs.kt](../app/src/main/java/com/speakpen/app/ui/Dialogs.kt)。
+源码：[LibraryScreen.kt](../app/src/main/java/com/speakpen/app/ui/LibraryScreen.kt)、[Dialogs.kt](../app/src/main/java/com/speakpen/app/ui/Dialogs.kt)、[DictionaryScreen.kt](../app/src/main/java/com/speakpen/app/ui/DictionaryScreen.kt)、[WordDetailDialog.kt](../app/src/main/java/com/speakpen/app/ui/WordDetailDialog.kt)。
 
 | ID | 模块／位置 | 语义类型 → 当前实现 | 变体／状态与检查点 |
 |---|---|---|---|
-| LIB-01 | 库页头与主入口 | Metadata＋CTA → 计数、添加按钮、复习按钮 | 空／非空、待复习计数；移除重复标题与装饰眉题，页标题由导航承载。 |
-| LIB-02 | 搜索／分类 | Search field＋Filter chips → `OutlinedTextField`、`FilterChip` | 全部／类型、搜索内容或释义。检查长类别文案、清空和无匹配。 |
-| LIB-03 | 结果列表／空态 | Content list／Empty state → `LazyColumn`、条件内容 | 真空库和筛选无结果使用不同标题，但共用添加引导；检查提示是否匹配当前空态。 |
-| LIB-04 | 复习卡片 | Review card → `Card`、元信息、内容、编辑／删除、两种复习结果按钮 | 释义／例句／来源按有无显示，已到期／未到期。检查信息层级、长文本与按钮触摸区域。 |
+| LIB-01 | 库页头与主入口 | Metadata＋CTA → 计数、添加按钮、复习按钮 | 空／非空、待复习计数、查词失败等服务错误用 `InlineNotice` 显示在页头下方；移除重复标题与装饰眉题，页标题由导航承载。 |
+| LIB-02 | 搜索／分类 | Search field＋Filter chips → `OutlinedTextField`、`FilterChip` | 全部／类型、搜索内容或释义（含 AI 补充的释义）。检查长类别文案、清空和无匹配。 |
+| LIB-03 | 结果列表／空态 | Content list／Empty state → `LazyColumn`、条件内容、查词入口 `Button` | 真空库、筛选无结果、输入了可查的英文表达三种形态；前两种共用添加引导，第三种给出「查一下「…」」入口，先看 AI 释义再收录。检查提示是否匹配当前空态与长查询。 |
+| LIB-04 | 复习卡片 | Review card → `Card`、元信息、内容、编辑／删除、查词入口、两种复习结果按钮 | 释义／例句／来源按有无显示；手填释义优先，AI 补充单独标注来源；无释义且内容可查时显示「不知道意思？查一下」。已到期／未到期。检查信息层级、长文本与按钮触摸区域。 |
 | LIB-05 | 删除收藏 | Destructive confirmation → `AlertDialog` | 显示目标内容、删除／保留；核对可恢复性和操作后果后再评估撤销方案。 |
-| LIB-06 | 手动新增／编辑积累 | Shared editor → `ReviewEditor` 的 `AlertDialog` | 类型 `FilterChip`＋内容、释义、例句输入；从复习库、聊天积累和候选编辑复用。检查共享变更影响及长文本。 |
+| LIB-06 | 手动新增／编辑积累 | Shared editor → `ReviewEditor` 的 `AlertDialog`（可选 `state`／`vm`／`autoLookup`） | 类型 `FilterChip`＋内容、释义、例句输入；内容可查且从未有释义时出现「不知道意思？让 AI 查一下」与行内建议块（收下／填入输入框／丢弃），示例模式的建议块标明「示例释义（未接入服务）」。`autoLookup` 由库页空态或卡片入口触发一次自动查询；查词失败时在对话框内直接显示错误原因。从复习库、聊天积累和候选编辑复用。检查共享变更影响、建议块叠层与长文本。 |
 | LIB-07 | 练习目标选择 | Multi-select picker → `PracticeDialogs` 中 `AlertDialog`＋`Checkbox`＋列表 | 空库、选 1–5 项、计数、上限、取消／去添加。到上限后不再新增勾选；是否需要解释必须结合设备验证。 |
 | LIB-08 | AI 提取候选 | Review／Multi-select dialog → `AlertDialog`＋复选列表 | 空／非空、编辑单项、选中计数、收藏；内部再开 `ReviewEditor`。检查叠层焦点、选择保留和重复说明。 |
 | LIB-09 | 历史练习 | 左侧抽屉的分组 LazyColumn | 真实记录与非空草稿／未完成场景可恢复；当前项选中；新建不丢原草稿；在途生成时提示先完成或取消。旧 History Dialog 保留代码但聊天入口不再调用。 |
+| LIB-10 | 单词本 | 全页浏览＋双语搜索 → `DictionaryScreen`、`OutlinedTextField`、`FilterChip`、字母分组 `LazyColumn` | 本机 7,638 词（四级／六级／雅思，ECDICT 中文侧），点行不作跳转只开词条弹窗；全部／四级／六级／雅思筛选、搜英文或中文释义、无匹配时按输入给「查一下「…」」；底部导入沿用 VOCAB-02／VOCAB-03 那套全屏 Dialog。检查 5,000 行列表滑动、字母头位置与长释义截断。 |
+| LIB-11 | 词条详情 | 居中 Dialog＋芯片＋释义 → `WordDetailDialog`、`Pill` | 本地命中：音标、词性、级别、柯林斯星级、完整释义、词形变化；未收录：近似词「是不是想查 X」＋AI 兜底（两步确认，不自动请求）；例句本机不带，按按钮才生成并复用同进程缓存；加入积累库／已在积累库跳复习。检查叠层与键盘、示例模式标注。 |
+
 
 ## Android：设置与对话参数
 

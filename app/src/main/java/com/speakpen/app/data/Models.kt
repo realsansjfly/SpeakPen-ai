@@ -49,8 +49,14 @@ data class ReviewItem(
     val id: String = newId(), val kind: ReviewKind = ReviewKind.PHRASE,
     val content: String, val meaning: String = "", val example: String = "", val reason: String = "",
     val sourceSessionId: String = "", val sourceNote: String = "手动添加",
+    val aiMeaning: String = "", val aiExample: String = "", val aiProvenance: String = "",
     val stage: Int = 0, val nextReviewAt: Long = 0L, val createdAt: Long = System.currentTimeMillis(),
-)
+) {
+    // 手填内容永远优先；AI 补充只在自己那一栏，来源可追溯。与 VocabularyEntry 同一策略。
+    val effectiveMeaning: String get() = meaning.ifBlank { aiMeaning }
+    val effectiveExample: String get() = example.ifBlank { aiExample }
+    val hasMeaning: Boolean get() = meaning.isNotBlank() || aiMeaning.isNotBlank()
+}
 data class ReviewCandidate(val item: ReviewItem, val selected: Boolean = true)
 data class SavedData(val sessions: List<ChatSession> = emptyList(), val library: List<ReviewItem> = emptyList(), val currentSessionId: String = "",
     val scenarioTemplates: List<ScenarioTemplate> = emptyList(), val scenarioSuccesses: List<ScenarioSuccess> = emptyList())
@@ -85,13 +91,16 @@ object DataJson {
         put("id", item.id); put("kind", item.kind.name); put("content", item.content)
         put("meaning", item.meaning); put("example", item.example); put("reason", item.reason)
         put("sourceSessionId", item.sourceSessionId); put("sourceNote", item.sourceNote)
+        put("aiMeaning", item.aiMeaning); put("aiExample", item.aiExample); put("aiProvenance", item.aiProvenance)
         put("stage", item.stage); put("nextReviewAt", item.nextReviewAt); put("createdAt", item.createdAt)
     }
     fun itemFromJson(json: JSONObject): ReviewItem = ReviewItem(
         id = json.optString("id").ifBlank { newId() }, kind = enumOr(json.optString("kind"), ReviewKind.PHRASE),
         content = json.getString("content"), meaning = json.optString("meaning"), example = json.optString("example"),
         reason = json.optString("reason"), sourceSessionId = json.optString("sourceSessionId"),
-        sourceNote = json.optString("sourceNote", "手动添加"), stage = json.optInt("stage").coerceIn(0, 5),
+        sourceNote = json.optString("sourceNote", "手动添加"),
+        aiMeaning = json.optString("aiMeaning"), aiExample = json.optString("aiExample"), aiProvenance = json.optString("aiProvenance"),
+        stage = json.optInt("stage").coerceIn(0, 5),
         nextReviewAt = json.optLong("nextReviewAt"), createdAt = json.optLong("createdAt", System.currentTimeMillis()),
     )
     private fun sessionToJson(session: ChatSession): JSONObject = JSONObject().apply {

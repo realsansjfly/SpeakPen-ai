@@ -12,6 +12,9 @@ data class VocabularyEntry(
     val id: String, val expression: String, val meaning: String = "", val example: String = "",
     val tags: String = "", val original: String = "", val line: Int = 0,
     val aiMeaning: String = "", val aiExample: String = "", val aiProvenance: String = "",
+    // 内置字典专用：只在内存里，不进 VocabularyJson（改了会改变已存词库的 digest）。
+    val phonetic: String = "", val pos: String = "", val levels: String = "", val collins: Int = 0,
+    val exchange: String = "",
 ) {
     val effectiveMeaning: String get() = meaning.ifBlank { aiMeaning }
 }

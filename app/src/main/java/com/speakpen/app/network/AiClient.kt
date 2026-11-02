@@ -60,8 +60,10 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
         }
         return ApiProtocol.chatText(raw)
     }
-    suspend fun vocabularyDefinition(config: ApiConfig, entry: VocabularyEntry): Pair<String, String> {
-        val body = JSONObject(ApiProtocol.chatBody(config.model, VocabularyPrompts.definition(entry)))
+    suspend fun vocabularyDefinition(config: ApiConfig, entry: VocabularyEntry): Pair<String, String> =
+        vocabularyDefinition(config, entry.expression)
+    suspend fun vocabularyDefinition(config: ApiConfig, expression: String): Pair<String, String> {
+        val body = JSONObject(ApiProtocol.chatBody(config.model, VocabularyPrompts.definition(expression)))
             .put("purpose", "learning").toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val raw = request(config, "chat/completions", body)
         check(JSONObject(raw).getJSONArray("choices").getJSONObject(0).optString("finish_reason") == "stop") {

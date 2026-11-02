@@ -36,5 +36,13 @@
     "excluded": 0,
     "sha256": "3632d20434322faa63b6770827931cccb6cc7afcf0536c68c9b46678edc5ada6"
   },
+  "dictionary": {
+    "name": "内置字典（词形 + 中文释义 + 音标 + 词性 + 柯林斯星级 + 词形变化）",
+    "file": "dictionary.tsv",
+    "rows": 7638,
+    "sha256": "b61102dd8bb1176e58dc72ad02dabafef01783b7b38edaa859b77bd255552054",
+    "builtBy": "scripts/build-dictionary.py",
+    "levels": ["cet4", "cet6", "ielts"]
+  },
   "csvRows": 770611
 }
