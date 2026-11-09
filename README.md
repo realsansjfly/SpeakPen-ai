@@ -1,12 +1,12 @@
-# SpeakPen · 开口 — 0.7.0
+# SpeakPen · 开口 — 0.7.1
 
 0.7.0 将近期学习流程升级整理为一个公开版本：首页使用可拖动的 CSS 3D 话题圆柱，选定话题后由 AI 主动开场；场景练习升级为全页选择、任务简报和完整示范对话；默认词库替换为 Anki 四级、六级和雅思资料，并加入可选的云端语义检索增强。完整改动见 [v0.7.0 版本说明](docs/releases/v0.7.0.md)。
 
-当前发布：[v0.7.0](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.7.0)。[全部 Releases](https://github.com/realsansjfly/SpeakPen-ai/releases) 提供历史版本说明和 APK；[在线功能展示](https://realsansjfly.github.io/SpeakPen-ai/) 已同步到 0.7.0。
+当前发布：[v0.7.1](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.7.1)。[全部 Releases](https://github.com/realsansjfly/SpeakPen-ai/releases) 提供历史版本说明和 APK；[在线功能展示](https://realsansjfly.github.io/SpeakPen-ai/) 提供最新下载。
 
-公开 APK 不内置服务地址或配对令牌。已有设备可覆盖安装并沿用已保存的配对；首次安装后，在“设置 → 服务连接 → 重新连接”粘贴自己的私密配对入口。下文“直接使用”为 0.4.0 历史说明，当前版本请按版本说明安装。
+0.7.1 修复 0.7.0 发布包漏配云服务的问题。安装后自动连接已部署的云服务，无需手动配对，也不需要维护者的电脑开机。已安装 0.7.0 的设备请覆盖更新，保留本机数据。详见 [修正版说明](docs/releases/v0.7.1.md)。
 
-0.7.0 的公开 APK 不内置服务地址或配对令牌。已有设备可覆盖安装并沿用已保存的配对；首次安装后，在“设置 → 服务连接 → 重新连接”粘贴自己的私密配对入口。固定云地址的私有构建与公开 Release 严格分开。
+发布包包含应用连接云服务所需的地址和访问令牌，下载者可使用该服务并产生模型费用；模型平台 API Key 仅保存在服务器。连接配置源文件 `.local/cloud-connection.json` 不提交到 Git。下文的本机服务与隧道说明属于历史开发流程。
 
 dev02 历史：设置区分“当前对话／新对话默认”，优化提示插入原句下方并可折叠，话题语料强化中英解释，见 [第一批调试记录](docs/DEBUG-FIRST-BATCH-2026-10-26.md)。dev03 起设置改为抽屉中的独立页面，返回自动保存、失败留页重试，已取代 dev02 的显式保存／撤销和离开确认。
 
@@ -18,7 +18,7 @@ dev02 历史：设置区分“当前对话／新对话默认”，优化提示�
 
 5 个开放资料候选供核查：`docs/resources/英语场景资料核查清单.md`。未导入第三方语料。
 
-## 直接使用
+## 历史：0.4.0 本机服务使用
 
 1. 安装 `deliverables/SpeakPen-0.4.0-debug.apk`，可覆盖 0.2.0，保留已有对话与复习内容。
 2. 正常打开 App 即连接已经运行的本机服务。默认退出旧版示例体验。
@@ -50,7 +50,11 @@ Node 仅监听 127.0.0.1:8787。Cloudflare 官方签名的 cloudflared 建立 HT
 # 停止当前项目登记的服务和 tunnel
 .\scripts\stop-service.ps1
 
-# 构建可公开分享的未配对 APK，具体文件名按新版本调整
+# 构建当前云端直连发布包（先配置 .local/cloud-connection.json）
+.\scripts\build.ps1 -JavaHome 'C:\path\to\jdk17' -Offline -Cloud `
+  -OutputDirectory '.\deliverables\release-0.7.1'
+
+# 仅供自行部署服务的开发者：构建未配对包，不用于组员下载入口
 .\scripts\build.ps1 -JavaHome 'C:\path\to\jdk17' -Offline -Unpaired `
   -OutputDirectory '.\deliverables\my-build' -ApkName 'SpeakPen-debug.apk'
 ```

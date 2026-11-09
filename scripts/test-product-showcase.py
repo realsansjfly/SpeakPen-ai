@@ -71,7 +71,9 @@ with sync_playwright() as p:
     assert page.locator('#scenarios').bounding_box()['y']>=page.locator('.chapter-bar').bounding_box()['height']
     assert page.locator('.chapter-bar').evaluate('el=>getComputedStyle(el).position')=='sticky'
     for link in page.locator('.apk-link').all():
-        assert link.get_attribute('href').endswith('SpeakPen-0.7.0-debug.apk')
+        assert link.get_attribute('href').endswith('/v0.7.1/SpeakPen-0.7.1-debug.apk')
+    assert '当前版本 0.7.1' in page.locator('.release-note').inner_text()
+    assert '安装即连云服务，无需配对' in page.locator('.download-actions').inner_text()
     page.locator('.back-top').click()
     assert page.evaluate('scrollY')<100
 

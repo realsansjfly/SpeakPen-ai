@@ -2,7 +2,7 @@ param(
     [string]$JavaHome = $env:JAVA_HOME,
     [switch]$Offline,
     [string]$OutputDirectory = '',
-    [string]$ApkName = 'SpeakPen-0.7.0-debug.apk',
+    [string]$ApkName = 'SpeakPen-0.7.1-debug.apk',
     [switch]$Unpaired,
     [switch]$Cloud,
     [string]$CloudConnectionPath = ''
