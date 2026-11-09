@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src https://appassets.androidplatform.net; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>今天，想聊点什么？</title>
+<style>
+@font-face{font-family:Nunito;src:url('https://appassets.androidplatform.net/fonts/nunito-regular.ttf')}@font-face{font-family:Nunito;src:url('https://appassets.androidplatform.net/fonts/nunito-bold.ttf');font-weight:700}
+:root{color-scheme:light;--paper:#f8faf9;--ink:#21382c;--muted:#64756c;--green:#357a10;--line:#e4ebe6;--type:1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden}body{font:calc(16px * var(--type))/1.5 Nunito,system-ui,-apple-system,'Microsoft YaHei',sans-serif;color:var(--ink);background:transparent}button{font:inherit;cursor:pointer;color:inherit;border:0;touch-action:manipulation}button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--green);outline-offset:3px}button:disabled{opacity:.45;cursor:default}::selection{color:var(--ink);background:#dcf8c6}[hidden]{display:none!important}
+.home{height:100%;position:relative;isolation:isolate}.browse{display:flex;flex-direction:column;align-items:center;height:100%;transition:filter .24s,opacity .24s}.stage{position:relative;width:100%;flex:1;min-height:150px;overflow:hidden;touch-action:pan-y;user-select:none;cursor:grab;outline-offset:-4px!important}.stage.dragging{cursor:grabbing}.scene{position:absolute;inset:0;perspective:950px;pointer-events:none}.world{position:absolute;left:50%;top:47%;width:0;height:0;transform-style:preserve-3d;transform:rotateX(-4deg)}.position{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d;pointer-events:none}.keyword{position:absolute;left:0;top:0;transform:translate(-50%,-50%);width:max-content;max-width:210px;min-width:96px;min-height:48px;padding:10px 12px;border-radius:14px;background:transparent;color:var(--ink);border:1px solid transparent;font-size:calc(15px * var(--type));font-weight:700;line-height:1.45;text-align:center;pointer-events:none;transition:background .16s,color .16s}.keyword.front{pointer-events:auto}.keyword.front:hover,.keyword.front:focus-visible{background:#edf8e7;color:var(--green)}.keyword .label{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}.position:nth-child(4n+2) .keyword{color:#357a10}.position:nth-child(4n+3) .keyword{color:#167ca6}.core{position:absolute;left:0;top:0;width:90vw;max-width:650px;transform:translate(-50%,-50%) rotateX(4deg);pointer-events:none;text-align:center}.core h1{margin:0;font-size:calc(clamp(27px,8.5vw,46px) * var(--type));font-weight:700;line-height:1.28;letter-spacing:-.025em}.core h1 span{display:block}.core h1 span:first-child{color:var(--muted);font-size:.62em;letter-spacing:0;margin-bottom:7px}.edge{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,var(--paper),transparent 7%,transparent 93%,var(--paper));z-index:3}.actions{display:flex;align-items:center;justify-content:center;gap:16px;padding:12px 20px 18px;flex-wrap:wrap;z-index:4}.quiet{background:transparent;color:var(--muted);padding:12px 16px;min-height:48px;min-width:72px;border-radius:24px}.random{display:flex;align-items:center;justify-content:center;gap:18px;background:var(--green);color:#fff;border-radius:26px;min-width:146px;min-height:52px;padding:12px 24px;font-weight:700}.random svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.quiet:hover{background:#edf8e7;color:var(--green)}.random:hover{background:#28620b}.pause{position:absolute;bottom:6px;right:14px;width:48px;height:48px;background:transparent;color:var(--muted);border-radius:50%;z-index:5;opacity:.7}.pause:hover,.pause:focus-visible{opacity:1;background:#edf8e7}.pause svg{width:18px;height:18px;fill:currentColor}.helper{margin:0 16px 12px;text-align:center;font-size:.87em;color:var(--muted)}.helper:empty{display:none}.demo{margin:0 0 8px;padding:8px 16px}
+.home.selecting .browse{filter:blur(9px);opacity:.25;pointer-events:none}.focus{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;background:#f8faf9a6;z-index:10}.focus-panel{width:min(100%,490px);max-height:100%;overflow:auto;overscroll-behavior:contain;text-align:center;padding:32px 22px 24px;background:#fffffff5;border-radius:24px;box-shadow:0 16px 48px #21382c12;animation:focus-in .3s cubic-bezier(.16,1,.3,1)}.selected-topic{font-size:calc(clamp(23px,6.6vw,34px) * var(--type));font-weight:700;line-height:1.5;overflow-wrap:anywhere;margin:0 0 30px}.question{font-size:1em;margin:0 0 14px;color:var(--muted)}.focus-actions{display:flex;gap:12px;justify-content:center}.confirm,.cancel{min-height:48px;padding:12px 30px;border-radius:24px;min-width:105px}.confirm{background:var(--green);color:white;font-weight:700}.cancel{background:#edf2ee}.confirm:focus-visible{outline-offset:4px}.list{position:absolute;inset:0;overflow-y:auto;padding:16px 20px 24px}.list-heading{font-size:1.6em;margin:8px 0 22px;text-align:center}.list-options{display:flex;flex-direction:column;align-items:stretch;gap:12px}.list-options button{background:#fff;border:1px solid var(--line);border-radius:14px;min-height:52px;padding:14px 18px;text-align:left;line-height:1.6;overflow-wrap:anywhere}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@keyframes focus-in{from{opacity:.55;transform:scale(.91)}to{opacity:1;transform:scale(1)}}
+@media(max-height:320px){.actions{padding:2px 12px 6px}.core h1{font-size:calc(25px * var(--type))}.core h1 span:first-child{display:none}.focus{padding:10px}.focus-panel{padding:20px 16px}.selected-topic{font-size:calc(22px * var(--type));margin-bottom:16px}.pause{bottom:0;right:4px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="home" id="home">
+  <div class="browse" id="browse">
+    <section class="stage" id="stage" aria-label="拖动浏览话题，点击选择" tabindex="0">
+      <div class="scene"><div class="world" id="world"><div class="core" id="core"><h1><span>今天，</span><span>想聊点什么？</span></h1></div></div></div>
+      <div class="edge" aria-hidden="true"></div>
+      <div class="list" id="list" hidden><h1 class="list-heading">今天，想聊点什么？</h1><div class="list-options" id="list-options"></div></div>
+      <button class="pause" id="pause" aria-label="暂停自转" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="pause-path" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+    </section>
+    <div class="actions"><button class="quiet" id="refresh">换一批</button><button class="random" id="random">随便！<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 4-5 4M3 17h4c5 0 5-10 10-10h4M16 13l5 4-5 4M3 7h4c1.4 0 2.4.8 3.3 2M14 15c.8 1.3 1.8 2 3 2h4"/></svg></button></div>
+    <button class="quiet demo" id="demo" hidden>先体验示例对话</button>
+    <p class="helper" id="error" role="status"></p>
+  </div>
+  <section class="focus" id="focus" role="dialog" aria-modal="true" aria-labelledby="selected-topic" aria-describedby="question" hidden>
+    <div class="focus-panel"><p class="selected-topic" id="selected-topic"></p><p class="question" id="question">开启对话？</p><div class="focus-actions"><button class="cancel" id="cancel">取消</button><button class="confirm" id="confirm">确定</button></div></div>
+  </section>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+</main>
+<script>
+'use strict';
+(() => {
+const $=id=>document.getElementById(id), reduced=matchMedia('(prefers-reduced-motion: reduce)');
+const config={baseSpeed:6,tau:.78,maxSpeed:260,sensitivity:.23,perspective:950};
+const s={angle:0,velocity:6,elapsed:0,previous:0,raf:0,active:true,enabled:true,motion:true,userPaused:false,selected:null,confirming:false,refreshing:false,revision:null,batch:[],tags:[],drag:null,burst:null,pending:null,focusId:null,width:390,height:400,staticMode:false,disposed:false};
+function native(method,...args){const bridge=window.SpeakPenNative;if(bridge&&typeof bridge[method]==='function'){bridge[method](...args);return true;}return false;}
+function wrap(angle){return ((angle%360)+360)%360;}
+function kinetic(angle,velocity,dt){const decay=Math.exp(-dt/config.tau);return {angle:wrap(angle+config.baseSpeed*dt+(velocity-config.baseSpeed)*config.tau*(1-decay)),velocity:config.baseSpeed+(velocity-config.baseSpeed)*decay};}
+function auto(){return s.active&&s.enabled&&s.motion&&!s.userPaused&&!s.selected&&!s.staticMode&&!document.hidden&&!s.drag&&!s.focusId;}
+function keepFrame(){if(!s.disposed&&!s.raf&&auto())s.raf=requestAnimationFrame(frame);}
+function resetClock(){s.previous=0;keepFrame();}
+function controls(){const blocked=!s.enabled||s.refreshing||s.confirming||!s.batch.length;$('refresh').disabled=!s.enabled||s.refreshing||s.confirming;$('refresh').textContent=s.refreshing?'正在换…':'换一批';$('random').disabled=blocked;$('confirm').disabled=!s.enabled||s.confirming;$('cancel').disabled=s.confirming;$('confirm').textContent=s.confirming?'准备中…':'确定';$('pause').hidden=s.staticMode;$('pause').setAttribute('aria-pressed',String(s.userPaused));$('pause').setAttribute('aria-label',s.userPaused?'恢复自转':'暂停自转');$('pause-path').setAttribute('d',s.userPaused?'M7 4v16l13-8z':'M6 5h4v14H6zm8 0h4v14h-4z');}
+function mount(topics){
+ s.batch=topics;s.tags.forEach(t=>t.el.remove());s.tags=[];const options=$('list-options');while(options.firstChild)options.removeChild(options.firstChild);
+ const rows=[[],[],[],[]];topics.forEach((t,i)=>rows[i%4].push(t));
+ rows.forEach((row,r)=>row.forEach((topic,i)=>{
+   const el=document.createElement('div');el.className='position';const b=document.createElement('button');b.className='keyword';b.dataset.id=topic.id;b.setAttribute('aria-label',topic.text);const label=document.createElement('span');label.className='label';label.textContent=topic.text;b.append(label);el.append(b);$('world').append(el);
+   const tag={el,button:b,topic,row:r,base:i*360/row.length+(r%2?27:0),front:false};s.tags.push(tag);
+   b.addEventListener('click',e=>{if(performance.now()<(s.suppressClickUntil||0))return;if(tag.front)select(topic,e.currentTarget);});
+   b.addEventListener('focus',()=>{s.focusId=topic.id;});b.addEventListener('blur',()=>{s.focusId=null;resetClock();});
+   const option=document.createElement('button');option.textContent=topic.text;option.dataset.id=topic.id;option.onclick=()=>select(topic,option);$('list-options').append(option);
+ }));controls();render();
+}
+function render(){
+ if(s.staticMode)return;
+ const radius=Math.min(520,Math.max(200,s.width*.69)),h=s.height,lanes=[-.255,-.14,.14,.255];
+ s.tags.forEach(t=>{
+   const angle=wrap(t.base+s.angle),rad=angle*Math.PI/180,x=Math.sin(rad)*radius,z=Math.cos(rad)*radius,depth=(Math.cos(rad)+1)/2,y=lanes[t.row]*h;
+   const front=depth>.66,opacity=.18+.82*Math.pow(depth,1.6),blur=(1-depth)*2.6;
+   const tangent=front?Math.max(-46,Math.min(46,angle>180?angle-360:angle)):0;
+   t.el.style.transform=`translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,${z.toFixed(2)}px) rotateY(${tangent.toFixed(2)}deg)`;
+   t.el.style.opacity=opacity.toFixed(3);t.button.style.filter=blur>.35?`blur(${blur.toFixed(2)}px)`:'none';
+   if(t.front!==front){t.front=front;t.button.classList.toggle('front',front);}
+   const visible=front&&Math.abs(x*config.perspective/(config.perspective-z))<s.width/2+40;
+   t.button.tabIndex=visible?0:-1;t.button.disabled=!s.enabled||s.refreshing;t.button.setAttribute('aria-hidden',String(!visible));
+ });
+ $('core').style.transform=`translate(-50%,-50%) rotateX(4deg) translateY(${(Math.sin(s.elapsed*.9)*5).toFixed(2)}px)`;
+}
+function frame(now){
+ s.raf=0;if(!auto()){s.previous=0;return;}
+ const dt=s.previous?Math.min((now-s.previous)/1000,.05):0;s.previous=now;
+ if(!s.focusId){
+  s.elapsed+=dt;
+  if(s.burst){const b=s.burst;b.time+=dt;const p=Math.min(1,b.time/.9),ease=p*p*(3-2*p);s.angle=wrap(b.start+360*ease+config.baseSpeed*b.time);
+    if(p>=.46&&s.pending){mount(s.pending);s.pending=null;}
+    if(p===1){s.burst=null;s.refreshing=false;s.velocity=config.baseSpeed;controls();}}
+  else{const p=kinetic(s.angle,s.velocity,dt);s.angle=p.angle;s.velocity=p.velocity;}
+  render();
+ }
+ keepFrame();
+}
+function resize(){const rect=$('stage').getBoundingClientRect();s.width=rect.width;s.height=rect.height;layoutMode();render();}
+function layoutMode(){const scale=Number(document.documentElement.style.getPropertyValue('--type'))||1;s.staticMode=!s.motion||reduced.matches||scale>1.35||s.height<220;$('list').hidden=!s.staticMode;$('world').style.visibility=s.staticMode?'hidden':'visible';if(s.staticMode&&s.refreshing&&s.pending){mount(s.pending);s.pending=null;s.burst=null;s.refreshing=false;}$('stage').tabIndex=s.staticMode?-1:0;$('stage').setAttribute('aria-label',s.staticMode?'选择话题':'拖动浏览话题，点击选择');controls();resetClock();}
+function select(topic,origin){if(!s.enabled||s.refreshing||s.selected||s.confirming)return;s.selected=topic;s.velocity=config.baseSpeed;s.drag=null;s.focusId=null;s.origin=origin;$('selected-topic').textContent=topic.text;$('question').textContent='开启对话？';$('focus').hidden=false;$('home').classList.add('selecting');$('browse').inert=true;$('browse').setAttribute('aria-hidden','true');native('selection',true);controls();$('confirm').focus({preventScroll:true});}
+function cancelSelection(){if(!s.selected||s.confirming)return;s.selected=null;$('focus').hidden=true;$('home').classList.remove('selecting');$('browse').inert=false;$('browse').removeAttribute('aria-hidden');native('selection',false);s.focusId=null;controls();if(s.origin&&s.origin.isConnected)s.origin.focus({preventScroll:true});if(!s.staticMode)stage.focus({preventScroll:true});s.focusId=null;resetClock();}
+function confirm(){if(!s.selected||s.confirming||!s.enabled)return;s.confirming=true;controls();if(!native('confirm',s.selected.id)){
+   window.dispatchEvent(new CustomEvent('speakpen-topic-confirmed',{detail:{id:s.selected.id,text:s.selected.text}}));
+   s.confirming=false;$('question').textContent='预览已选中；App 中将由 AI 开场。';controls();
+ }}
+function receive(batch){if(!batch||batch.revision===s.revision)return;s.revision=batch.revision;const next=batch.topics.filter(t=>typeof t.id==='string'&&typeof t.text==='string');
+ if(!s.batch.length||!s.refreshing||!s.motion||s.staticMode||!s.active||s.userPaused){mount(next);s.refreshing=false;s.burst=null;s.pending=null;controls();}
+ else{s.pending=next;s.burst={start:s.angle,time:0};s.focusId=null;}
+ resetClock();}
+function update(o){s.active=!!o.active;s.enabled=!!o.enabled;s.motion=o.motion!==false;document.documentElement.style.setProperty('--type',String(Math.max(1,Math.min(2,o.fontScale||1))));$('demo').hidden=!o.demoAvailable;layoutMode();if(o.batch)receive(o.batch);if(!s.active&&s.selected&&!s.confirming)cancelSelection();if(!s.active){s.drag=null;s.velocity=config.baseSpeed;$('stage').classList.remove('dragging');}render();controls();resetClock();}
+function refreshFailed(){s.refreshing=false;s.burst=null;s.pending=null;$('error').textContent='话题暂时无法读取，请重试换一批。';controls();resetClock();}
+function confirmRejected(){s.confirming=false;$('question').textContent='暂时无法开启，请检查服务或取消后重试。';controls();}
+$('random').onclick=()=>{if(!s.batch.length||!s.enabled||s.refreshing)return;const a=new Uint32Array(1);crypto.getRandomValues(a);select(s.batch[a[0]%s.batch.length],$('random'));};
+$('confirm').onclick=confirm;$('cancel').onclick=cancelSelection;
+$('focus').onclick=e=>{if(e.target===$('focus'))cancelSelection();};
+$('refresh').onclick=()=>{if(s.refreshing||!s.enabled||s.selected)return;s.refreshing=true;$('error').textContent='';s.focusId=null;controls();if(!native('refresh'))window.dispatchEvent(new CustomEvent('speakpen-refresh'));};
+$('demo').onclick=()=>native('demo');
+$('pause').onclick=()=>{s.userPaused=!s.userPaused;s.focusId=null;controls();resetClock();};
+const stage=$('stage');
+stage.addEventListener('pointerdown',e=>{if(!s.enabled||s.selected||s.refreshing||s.staticMode||e.button!==0||e.target.closest('#pause'))return;s.drag={id:e.pointerId,x:e.clientX,y:e.clientY,lastX:e.clientX,last:e.timeStamp,moved:false,velocity:0};s.focusId=null;stage.classList.add('dragging');});
+stage.addEventListener('pointermove',e=>{const d=s.drag;if(!d||e.pointerId!==d.id)return;const totalX=e.clientX-d.x,totalY=e.clientY-d.y;
+ if(!d.moved){if(Math.abs(totalY)>12&&Math.abs(totalY)>Math.abs(totalX)){release(e,true);return;}if(Math.abs(totalX)<8)return;d.moved=true;stage.setPointerCapture(e.pointerId);}
+ e.preventDefault();const dt=Math.max((e.timeStamp-d.last)/1000,.008),dx=e.clientX-d.lastX;s.angle=wrap(s.angle+dx*config.sensitivity);const measured=dx*config.sensitivity/dt;d.velocity=Math.max(-config.maxSpeed,Math.min(config.maxSpeed,d.velocity*.25+measured*.75));s.velocity=d.velocity;d.lastX=e.clientX;d.last=e.timeStamp;render();
+});
+function release(e,cancelled=false){const d=s.drag;if(!d||e.pointerId!==d.id)return;s.drag=null;stage.classList.remove('dragging');if(stage.hasPointerCapture(d.id))stage.releasePointerCapture(d.id);if(d.moved){s.suppressClickUntil=performance.now()+300;s.velocity=cancelled||e.timeStamp-d.last>100?config.baseSpeed:d.velocity;}else s.velocity=config.baseSpeed;resetClock();}
+stage.addEventListener('pointerup',e=>release(e));stage.addEventListener('pointercancel',e=>release(e,true));stage.addEventListener('lostpointercapture',e=>release(e,true));
+stage.addEventListener('keydown',e=>{if(s.selected||e.target!==stage)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();s.angle=wrap(s.angle+(e.key==='ArrowRight'?15:-15));s.velocity=config.baseSpeed;render();}if(e.code==='Space'){e.preventDefault();$('pause').click();}});
+document.addEventListener('keydown',e=>{if(!s.selected)return;if(e.key==='Escape'){e.preventDefault();cancelSelection();}if(e.key==='Tab'){e.preventDefault();(document.activeElement===$('confirm')?$('cancel'):$('confirm')).focus();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(s.raf);s.raf=0;s.drag=null;s.velocity=config.baseSpeed;}else resetClock();});
+const onMotionChange=()=>{layoutMode();render();};if(reduced.addEventListener)reduced.addEventListener('change',onMotionChange);else if(reduced.addListener)reduced.addListener(onMotionChange);
+if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);else window.addEventListener('resize',resize);
+window.addEventListener('error',e=>native('failed',String(e.message).slice(0,120)));
+window.addEventListener('unhandledrejection',()=>native('failed','unhandled_promise'));
+window.SpeakPenHome={update,cancelSelection,confirmRejected,refreshFailed,inspect:()=>({angle:s.angle,velocity:s.velocity,selected:s.selected?s.selected.id:null,confirming:s.confirming,refreshing:s.refreshing,staticMode:s.staticMode,active:s.active,revision:s.revision,topicIds:s.batch.map(t=>t.id)}),kinetic};
+if(window.SPEAKPEN_INITIAL)update(window.SPEAKPEN_INITIAL);resize();keepFrame();
+})();
+</script>
+</body>
+</html>

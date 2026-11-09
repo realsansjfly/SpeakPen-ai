@@ -1,0 +1,24 @@
+[Unit]
+Description=SpeakPen bilingual vocabulary retrieval
+After=network.target
+
+[Service]
+User=speakpen
+Group=speakpen
+WorkingDirectory=/opt/speakpen-semantic
+EnvironmentFile=/etc/speakpen/speakpen.env
+Environment=OMP_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=1
+ExecStart=/opt/speakpen-semantic/venv/bin/python /opt/speakpen-semantic/service.py
+Restart=on-failure
+RestartSec=5
+MemoryMax=700M
+CPUQuota=150%
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/speakpen-semantic
+
+[Install]
+WantedBy=multi-user.target

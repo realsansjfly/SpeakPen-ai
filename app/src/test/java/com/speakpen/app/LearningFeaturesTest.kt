@@ -84,7 +84,7 @@ class LearningFeaturesTest {
         val p = practice().copy(transcript = "PRIVATE PRACTICE", audioFileName = "a.m4a")
         val s = session().copy(speakingPractices = listOf(p), messages = session().messages + optimized())
         assertFalse(CoachPrompts.history(s).toString().contains("PRIVATE"))
-        assertFalse(LearningFeatureProtocol.scaffold(s).toString().contains("PRIVATE"))
+        assertFalse(LearningPrompts.topic(s.messages).toString().contains("PRIVATE"))
         assertEquals(2, RecapSnapshot.capture(s, RecapKind.LATEST).messages.size)
     }
     @Test fun explicitlySendingPracticeIsAtomicAndCannotSendTwice() {
@@ -217,7 +217,7 @@ class LearningFeaturesTest {
                     .toString().toResponseBody("application/json".toMediaType())).build()
         }.build())
         val api = ApiConfig("https://example.test/v1", "test", "managed")
-        client("stop").structuredLearning(api, LearningFeatureProtocol.scaffold(session()))
+        client("stop").structuredLearning(api, LearningFeatureProtocol.optimize(session(), user))
         assertEquals("learning", body.getString("purpose")); assertFalse(body.has("temperature")); assertFalse(body.has("reply_length"))
         client("stop").structuredLearning(api, LearningFeatureProtocol.recap(RecapSnapshot.capture(session(), RecapKind.LATEST)), "summary")
         assertEquals("summary", body.getString("purpose"))
@@ -232,7 +232,7 @@ class LearningFeaturesTest {
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
                 .body("""{"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}""".toResponseBody("application/json".toMediaType())).build()
         }.build())
-        val prompts = listOf("scaffold" to LearningFeatureProtocol.scaffold(s), "optimize" to LearningFeatureProtocol.optimize(s, user),
+        val prompts = listOf("topic" to LearningPrompts.topic(s.messages), "optimize" to LearningFeatureProtocol.optimize(s, user),
             "correction" to LearningFeatureProtocol.correction(s, user, s.config.copy(realtimeCorrection = true)), "recap" to LearningFeatureProtocol.recap(snapshot))
         for ((name, messages) in prompts) {
             client.structuredLearning(ApiConfig("https://example.test/v1", "test", "managed"), messages, if (name == "recap") "summary" else "learning")

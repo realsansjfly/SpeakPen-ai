@@ -52,6 +52,16 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+internal object NavigationGestures {
+    fun drawerEnabled(state: PracticeState, navigateEnabled: Boolean, drawerOpen: Boolean = false): Boolean {
+        // Material also gates scrim dismissal with gesturesEnabled. Open drawers must stay dismissible.
+        if (drawerOpen) return true
+        val topicBrowserVisible = state.page == 0 && state.session.messages.isEmpty() &&
+            !state.topicOpeningNeeded && state.busy == null && state.session.mode != ConversationMode.SCENARIO
+        return state.page != 2 && navigateEnabled && !topicBrowserVisible
+    }
+}
+
 @Composable
 fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -64,7 +74,9 @@ fun PracticeNavigation(state: PracticeState, vm: PracticeViewModel, onRecord: ()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val drawerWidth = maxWidth * .75f
         ModalNavigationDrawer(drawerState = drawer,
-            gesturesEnabled = state.page != 2 && navigateEnabled,
+            // The cylinder owns horizontal drags. Its persistent menu button remains the drawer entry.
+            gesturesEnabled = NavigationGestures.drawerEnabled(state, navigateEnabled,
+                drawerOpen = drawer.currentValue == DrawerValue.Open || drawer.targetValue == DrawerValue.Open),
             drawerContent = {
                 ModalDrawerSheet(modifier = Modifier.width(drawerWidth).fillMaxHeight(),
                     drawerContainerColor = Paper, drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),

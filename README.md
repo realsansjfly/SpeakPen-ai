@@ -1,14 +1,16 @@
-# SpeakPen · 开口 — 0.6.0-dev07 开发预览版
+# SpeakPen · 开口 — 0.7.0
 
-当前预发布：[v0.6.0-dev07](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.6.0-dev07)。[全部 Releases](https://github.com/realsansjfly/SpeakPen-ai/releases) 提供 dev02～dev07 每版的更新说明、同签名 Debug APK、SHA-256 和测试报告。按版本查看新增与修改见 [版本索引](docs/releases/README.md)，简要历史见 [CHANGELOG](docs/CHANGELOG.md)。dev07 修正表达提示格式要求及占位符兼容，真实模型稳定性与真机交互仍待验收。
+0.7.0 将近期学习流程升级整理为一个公开版本：首页使用可拖动的 CSS 3D 话题圆柱，选定话题后由 AI 主动开场；场景练习升级为全页选择、任务简报和完整示范对话；默认词库替换为 Anki 四级、六级和雅思资料，并加入可选的云端语义检索增强。完整改动见 [v0.7.0 版本说明](docs/releases/v0.7.0.md)。
+
+当前发布：[v0.7.0](https://github.com/realsansjfly/SpeakPen-ai/releases/tag/v0.7.0)。[全部 Releases](https://github.com/realsansjfly/SpeakPen-ai/releases) 提供历史版本说明和 APK；[在线功能展示](https://realsansjfly.github.io/SpeakPen-ai/) 已同步到 0.7.0。
 
 公开 APK 不内置服务地址或配对令牌。已有设备可覆盖安装并沿用已保存的配对；首次安装后，在“设置 → 服务连接 → 重新连接”粘贴自己的私密配对入口。下文“直接使用”为 0.4.0 历史说明，当前版本请按版本说明安装。
 
-当前开发进度：会话配置、场景首个 Android 增量、词库、分层提示／优化重说／可选纠错、复盘导出和成功反馈／统计已分批接入；dev06 增加 440 条随机话题及局部渐变，dev07 修正表达提示格式。各批自动化、真实接口和设备验收边界见 [本轮实施记录](docs/IMPLEMENTATION-2026-10-26.md)。2026-11-02 的未发版增量另有内置中文释义词典、抽屉查词与「单词本」页，见 [单词本与内置中文释义](docs/DICTIONARY-2026-11-02.md)。以下 0.4.0／dev02 段落为历史说明，当前安装入口与行为以版本说明为准。
+0.7.0 的公开 APK 不内置服务地址或配对令牌。已有设备可覆盖安装并沿用已保存的配对；首次安装后，在“设置 → 服务连接 → 重新连接”粘贴自己的私密配对入口。固定云地址的私有构建与公开 Release 严格分开。
 
 dev02 历史：设置区分“当前对话／新对话默认”，优化提示插入原句下方并可折叠，话题语料强化中英解释，见 [第一批调试记录](docs/DEBUG-FIRST-BATCH-2026-10-26.md)。dev03 起设置改为抽屉中的独立页面，返回自动保存、失败留页重试，已取代 dev02 的显式保存／撤销和离开确认。
 
-真实 AI 已接通：聊天 `qwen3.7-flash-2026-07-15`，语音识别 `qwen3-asr-flash`，云端朗读 `qwen3-tts-flash`。
+真实聊天 `qwen3.7-flash-2026-07-15` 和语音识别 `qwen3-asr-flash` 已接通。云端朗读使用独立的官方百炼 `qwen3-tts-flash` 凭据；未配置时 App 自动回退到 Android 系统朗读。配置流程见 [云端语音](docs/CLOUD-TTS-2026-11-09.md)。
 
 ## 0.4.0 学习交互更新
 

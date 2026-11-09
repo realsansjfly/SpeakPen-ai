@@ -1,4 +1,4 @@
-import {isConversation,conversationMessages,extractionPrompts,optimizationPrompts,topicPrompts,replaceMessage,bilingualTopicText} from '/learning.js';
+import {isConversation,conversationMessages,extractionPrompts,optimizationPrompts,topicPrompts,replaceMessage,latestTopicRound,topicBankText} from '/learning.js';
 'use strict';
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('speakpen-token') || '';
@@ -17,12 +17,12 @@ function save() { localStorage.setItem('speakpen-web-v1', JSON.stringify({ messa
 function feedback(text = '') { $('feedback').textContent = text; $('feedback').hidden = !text; }
 async function request(path, data, multipart = false) {
  const response = await fetch(`/v1/${path}`, { method: 'POST', headers: { authorization: `Bearer ${token}`, ...(multipart ? {} : { 'content-type': 'application/json' }) }, body: multipart ? data : JSON.stringify(data), signal: AbortSignal.timeout(45000) });
- if (!response.ok) throw new Error(response.status === 401 ? '服务连接已失效，请重新打开电脑生成的连接入口。' : response.status === 429 ? '请求较多，请稍后再试。' : '服务暂时没有响应，消息已保留，可以重试。');
+ if (!response.ok) throw new Error(response.status === 401 ? '服务连接已失效，请重新打开完整服务入口。' : response.status === 429 ? '请求较多，请稍后再试。' : '服务暂时没有响应，消息已保留，可以重试。');
  return response;
 }
 async function checkStatus() {
  $('connect').hidden = !!token;
- if (!token) { $('status').textContent = '请先连接这台电脑'; return; }
+ if (!token) { $('status').textContent = '请先连接口语服务'; return; }
  try { const response = await fetch('/v1/status', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw Error(); const result = await response.json(); $('status').textContent = result.ready ? '已连接 · 千问对话与语音识别' : '服务尚未就绪'; }
  catch { $('status').textContent = '连接不可用'; $('connect').hidden = false; }
 }
@@ -169,7 +169,7 @@ function attachLongPress(bubble,message){
 $('close-actions').onclick=()=>$('message-actions').close();
 $('copy-message').onclick=async()=>{const text=selectedBlock?.text||'';$('message-actions').close();try{await navigator.clipboard.writeText(text);feedback('已复制这条消息。');}catch{feedback('浏览器不允许复制。');}};
 async function completion(prompts,purpose='learning'){
- const response=await request('chat/completions',{purpose,messages:prompts});const result=await response.json();const text=result.choices?.[0]?.message?.content;if(!text?.trim())throw Error('生成结果为空，原消息保留。');return text;
+ const response=await request('chat/completions',{purpose,messages:prompts});const result=await response.json();const choice=result.choices?.[0];const text=choice?.message?.content;if(purpose==='topic_bank'&&choice?.finish_reason!=='stop')throw Error('语料未完整返回，请重试；原内容已保留。');if(!text?.trim())throw Error('生成结果为空，原消息保留。');return text;
 }
 function renderCandidates(){
  $('candidate-list').replaceChildren();
@@ -187,8 +187,12 @@ $('rewrite-message').onclick=async()=>{const selected=selectedBlock;$('message-a
   const context=messages.filter(x=>selected.hintContextIds?.includes(x.id)&&isConversation(x));
   const original=messages.find(x=>x.id===selected.sourceMessageId);
   if(selected.hintKind==='OPTIMIZE'&&!original)throw Error('原话已不存在。');
-  const prompts=selected.hintKind==='OPTIMIZE'?optimizationPrompts([...context,original],original):topicPrompts(context);
-  messages=replaceMessage(messages,selected.id,await completion(prompts));
+  if(selected.hintKind==='SCAFFOLD')throw Error('历史表达提示仅供阅读。');
+  const isTopic=selected.hintKind==='TOPIC', options=selected.topicOptions||{};
+  if(isTopic&&JSON.stringify(latestTopicRound(messages).map(x=>x.id))!==JSON.stringify(selected.hintContextIds))throw Error('最新一轮已变化，请重新打开话题语料。');
+  const prompts=isTopic?topicPrompts(context,options):optimizationPrompts([...context,original],original);
+  const raw=await completion(prompts,isTopic?'topic_bank':'learning');
+  messages=replaceMessage(messages,selected.id,isTopic?topicBankText(raw,options):raw);
  }else{
   const before=conversationMessages(messages.slice(0,messages.findIndex(x=>x.id===selected.id)));
   const prompts=[{role:'system',content:coach()},...before.map(x=>({role:x.role,content:x.help?'[CHINESE HELP] '+x.text:x.text}))];
@@ -196,10 +200,13 @@ $('rewrite-message').onclick=async()=>{const selected=selectedBlock;$('message-a
  }
  save();render();
  }catch(error){feedback(error.message);}finally{setBusy(false);}};
-$('topic-expressions').onclick=async()=>{if(busy||recording)return;const context=conversationMessages(messages).slice(-12);if(!context.length)return feedback('先开启一个话题。');setBusy(true);try{const text=bilingualTopicText(await completion(topicPrompts(context)));messages.push({id:crypto.randomUUID(),role:'hint',hintKind:'TOPIC',text,hintContextIds:context.map(x=>x.id)});save();render();}catch(error){feedback(error.message);}finally{setBusy(false);}};
+$('topic-expressions').onclick=()=>{if(busy||recording)return;let error='';try{latestTopicRound(messages);}catch(e){error=e.message;}$('topic-boundary').textContent=error;$('topic-generate').disabled=!!error;$('topic-options').showModal();};
+$('topic-count').oninput=()=>{$('topic-count-label').value=$('topic-count').value;};
+$('topic-cancel').onclick=()=>$('topic-options').close();
+$('topic-form').onsubmit=async event=>{event.preventDefault();if(busy||recording)return;const options={purpose:$('topic-purpose').value,count:Number($('topic-count').value),difficulty:$('topic-difficulty').value};let context;try{context=latestTopicRound(messages);}catch(error){$('topic-boundary').textContent=error.message;return;}$('topic-options').close();setBusy(true);try{const text=topicBankText(await completion(topicPrompts(context,options),'topic_bank'),options);messages.push({id:crypto.randomUUID(),role:'hint',hintKind:'TOPIC',text,topicOptions:options,hintContextIds:context.map(x=>x.id)});save();render();}catch(error){feedback(error.message);}finally{setBusy(false);}};
 $('save-candidates').onclick=()=>{let count=0;$('candidate-list').querySelectorAll('input:checked').forEach(check=>{const item=candidates[Number(check.dataset.index)];if(!item.content?.trim())return;if(!library.some(x=>x.content.toLowerCase()===item.content.toLowerCase())){library.push({...item,id:crypto.randomUUID()});count++;}});save();$('candidates').close();feedback(`已收藏 ${count} 项表达。`);};
 $('close-candidates').onclick=()=>$('candidates').close();
-$('connect-button').onclick=()=>{try{const value=new URL($('connection').value);const candidate=new URLSearchParams(value.hash.slice(1)).get('token');if(!candidate?.match(/^[a-f0-9]{64}$/))throw Error();token=candidate;sessionStorage.setItem('speakpen-token',token);$('connection').value='';checkStatus();}catch{feedback('请粘贴电脑生成的完整连接入口。');}};
+$('connect-button').onclick=()=>{try{const value=new URL($('connection').value);const candidate=new URLSearchParams(value.hash.slice(1)).get('token');if(!candidate?.match(/^[a-f0-9]{64}$/))throw Error();token=candidate;sessionStorage.setItem('speakpen-token',token);$('connection').value='';checkStatus();}catch{feedback('请粘贴完整服务连接入口。');}};
 $('pair').onclick=()=>{if(!token)return feedback('先连接服务。');location.href=`speakpen://connect?url=${encodeURIComponent(location.origin+'/v1')}&token=${encodeURIComponent(token)}`;};
 $('install').onclick=async()=>{if(!token)return feedback('先连接服务。');try{const response=await fetch('/app.apk',{headers:{authorization:`Bearer ${token}`}});if(!response.ok)throw Error();const url=URL.createObjectURL(await response.blob());const link=document.createElement('a');link.href=url;link.download='SpeakPen-0.4.0.apk';link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}catch{feedback('安装包尚未就绪，请稍后重试。');}};
 $('copy-link').onclick=async()=>{

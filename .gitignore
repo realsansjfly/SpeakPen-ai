@@ -11,6 +11,7 @@ server/.env
 server/*.log
 *.hprof
 .tooling/
+__pycache__/
 
 .local/
 server/private/

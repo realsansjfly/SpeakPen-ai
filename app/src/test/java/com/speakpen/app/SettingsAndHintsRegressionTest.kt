@@ -130,11 +130,11 @@ class SettingsAndHintsRegressionTest {
             "travel-english-context" to "I am checking in at a hotel and would like a quiet room.",
         )
         cases.forEach { (name, text) ->
-            val context = listOf(ChatMessage(id = "u", role = "user", text = text))
+            val context = listOf(ChatMessage(id = "u", role = "user", text = text), ChatMessage(id = "a", role = "assistant", text = "What would you like to say next?"))
             val prompts = LearningPrompts.topic(context)
-            assertTrue(prompts.first().second.contains("Every one of the 4-6 items"))
+            assertTrue(prompts.first().second.contains("Every item must contain English and Chinese"))
             assertFalse(prompts.last().second.contains("PRIVATE HINT"))
-            fixtures.put(JSONObject().put("name", name).put("body", JSONObject(ApiProtocol.chatBody("managed", prompts)).put("purpose", "learning")))
+            fixtures.put(JSONObject().put("name", name).put("body", JSONObject(ApiProtocol.chatBody("managed", prompts)).put("purpose", "topic_bank")))
         }
         assertEquals("点餐\nA coffee — 一杯咖啡", LearningOutput.topic("点餐\nA coffee — 一杯咖啡"))
         File("build/outputs/debug-topic-live-requests.json").apply { parentFile?.mkdirs(); writeText(fixtures.toString(2)) }

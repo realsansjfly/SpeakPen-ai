@@ -1,0 +1,121 @@
+{
+  "source": "英语口语场景对话示例.docx",
+  "sha256": "7912e1089ebf980040e41cf50ea5cde7be3c95296645d91c5da3aa7dfb989db6",
+  "scenes": {
+    "cafe": {
+      "title": "Coffee Shop — Ordering a Drink",
+      "dialogue": [
+        "Customer 1: Can I have an orange juice, please?",
+        "Server: Regular or large?",
+        "Customer 1: How big is a large?",
+        "Server: This is a large. This is a regular.",
+        "Customer 1: I'll have a large, then, please. Without ice.",
+        "Server: OK, coming up.",
+        "Customer 1: Sorry, I wanted freshly squeezed orange juice.",
+        "Server: I'm afraid we only have bottled juices.",
+        "Customer 1: Oh, then I'll have an apple juice instead, please.",
+        "Server: Here you go. That's £3.50, please.",
+        "Customer: Thanks.",
+        "Server: Thank you."
+      ]
+    },
+    "shopping": {
+      "title": "Shopping — Buying Clothes",
+      "dialogue": [
+        "Shop assistant: Hello, can I help you?",
+        "Customer: I'm just looking, thanks.",
+        "Customer: Excuse me?",
+        "Shop assistant: Yes?",
+        "Customer: Where are the changing rooms?",
+        "Shop assistant: They're over there. Behind you.",
+        "Customer: Thank you.",
+        "Customer: Hi. Excuse me again. Do you have this jumper in black?",
+        "Shop assistant: Yes, just a moment. What size do you need?",
+        "Customer: Extra small, please.",
+        "Shop assistant: Here you are.",
+        "Customer: How much is this?",
+        "Shop assistant: It's £29.",
+        "Customer: Can I pay by credit card?",
+        "Shop assistant: Yes, you can. Of course.",
+        "Shop assistant: Would you like a bag for that?",
+        "Customer: Yes, please."
+      ]
+    },
+    "directions": {
+      "title": "Asking for Directions — Finding the Art Museum",
+      "dialogue": [
+        "Mia: Excuse me, sorry to bother you. How do I get to the art museum from here?",
+        "Gwen: Oh, you're close. Go straight down this street three blocks, then make a left at the light.",
+        "Mia: Straight three blocks, then a left at the light.",
+        "Gwen: That's it. Once you turn, it's about halfway down the block, on your right.",
+        "Ben: How will we know it when we see it?",
+        "Gwen: It's the big gray building across from the library. You really can't miss it.",
+        "Mia: And how long does that take on foot?",
+        "Gwen: Ten minutes, tops. It's a straight shot until you hit the light.",
+        "Ben: So we're headed the right way already?",
+        "Gwen: You are. Just keep going the way you're facing.",
+        "Mia: Thank you so much. You've been a big help.",
+        "Gwen: Happy to help. Enjoy the museum!"
+      ]
+    },
+    "hotel": {
+      "title": "Hotel Check-in — A Reservation Mix-up",
+      "dialogue": [
+        "Guest: Hi. I have a reservation for tonight.",
+        "Hotel Clerk: And your name?",
+        "Guest: It’s Nelson. Charles Nelson.",
+        "Hotel Clerk: Okay. Mr. Nelson. Okay. That’s a room for five, and . . .",
+        "Guest: Excuse me? You mean a room for five dollars? I didn’t know the special was so good.",
+        "Hotel Clerk: No, no, no. According to our records, a room for five guests was booked under your name.",
+        "Guest: No. No. Hold on. There must be some mistake.",
+        "Hotel Clerk: Okay. Let’s check this again. Okay, Mr. Charles C. Nelson for tonight . . .",
+        "Guest: Ah. There’s the problem. My name is Charles Nelson, not Charles C. Nelson. [Oh . . .] You must have two guests under the same name.",
+        "Hotel Clerk: Okay. Let me check this again. Oh. Okay. Here we are.",
+        "Guest: Yeah.",
+        "Hotel Clerk: Charles Nelson. A room for one for the 19th . . .",
+        "Guest: Wait, wait! It was for tonight. Not tomorrow night.",
+        "Hotel Clerk: Hum. Hum. I don’t think we have any rooms for tonight. There’s a convention going on in town, and, uh, let’s see. Yeah, no rooms.",
+        "Guest: Ah come on! You must have something. Anything.",
+        "Hotel Clerk: Well. We do have some rooms under renovation with just a roll-a-way bed. None of the normal amenities like a TV or working shower or toilet.",
+        "Guest: Ah man. Come on. There must be something else.",
+        "Hotel Clerk: Well. Let, let me check my computer here. Ah!",
+        "Guest: What?",
+        "Hotel Clerk: There has been a cancellation for this evening. A honeymoon suite is now available.",
+        "Guest: Great. I’ll take it.",
+        "Hotel Clerk: But I’ll have to charge you two hundred fifty dollars for the night.",
+        "Guest: Ah. Man. I should get a discount for the inconvenience.",
+        "Hotel Clerk: Well. The best I can give you is a ten percent discount plus a ticket for a free continental breakfast.",
+        "Guest: Hey. Isn’t the breakfast free anyway?",
+        "Hotel Clerk: Well, only on weekends.",
+        "Guest: I want to talk to the manager.",
+        "Hotel Clerk: Wait, wait, wait Mr. Nelson. I think I can give you an additional 15 percent discount and I’ll throw in a free room for the next time you visit us.",
+        "Guest: That’ll be a long time."
+      ]
+    },
+    "campus": {
+      "title": "Campus Socializing — Meeting Classmates",
+      "dialogue": [
+        "Teacher: So, now you've got the important information, it's time to meet each other. Everyone turn to the people next to you and introduce yourselves.",
+        "Cara: So, hi. I'm Cara. And you are?",
+        "Robert: Robert.",
+        "Selim: Selim.",
+        "Cara: Nice to meet you!",
+        "Robert and Selim: You too.",
+        "Robert: Nice accent. Where are you from?",
+        "Cara: I'm from Glasgow.",
+        "Robert: Oh, really? My mum's from near Glasgow, so I'm half Scottish.",
+        "Cara: Cool. Do you live in Scotland?",
+        "Robert: No, we live in England, near Manchester. My dad's from there. What about you, Selim?",
+        "Selim: I'm from Leeds originally but I grew up near London.",
+        "Cara: Are you both doing history on its own?",
+        "Selim: No. I'm doing history and German.",
+        "Robert: I'm doing it with maths, actually.",
+        "Selim: History and maths. That's different!",
+        "Robert: Yeah, I couldn't decide between arts and sciences. Maths doesn't help with remembering dates, though! And you?",
+        "Cara: I'm doing history and French.",
+        "Selim: I wanted to do French but German was easier, so I took that.",
+        "Cara: German is so hard!"
+      ]
+    }
+  }
+}

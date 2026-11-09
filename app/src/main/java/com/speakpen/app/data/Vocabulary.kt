@@ -8,13 +8,16 @@ import java.util.Locale
 data class VocabularySuggestion(val bookId: String, val version: String, val entryId: String,
     val meaning: String, val example: String, val provenance: String)
 
+data class VocabularyDetail(val title: String, val text: String)
+
 data class VocabularyEntry(
     val id: String, val expression: String, val meaning: String = "", val example: String = "",
     val tags: String = "", val original: String = "", val line: Int = 0,
     val aiMeaning: String = "", val aiExample: String = "", val aiProvenance: String = "",
-    // 内置字典专用：只在内存里，不进 VocabularyJson（改了会改变已存词库的 digest）。
+    // Legacy ECDICT metadata stays in memory; Anki metadata uses an optional lexical envelope.
     val phonetic: String = "", val pos: String = "", val levels: String = "", val collins: Int = 0,
     val exchange: String = "",
+    val source: String = "", val details: List<VocabularyDetail> = emptyList(),
 ) {
     val effectiveMeaning: String get() = meaning.ifBlank { aiMeaning }
 }
@@ -29,7 +32,7 @@ data class VocabularyBook(
     val id: String = newId(), val version: String = "1", val name: String, val source: String,
     val license: String = "用户提供，许可未核查", val originalText: String = "", val fileName: String = "",
     val format: String = "TXT", val entries: List<VocabularyEntry>, val builtIn: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis(), val attribution: String = "",
+    val createdAt: Long = System.currentTimeMillis(), val attribution: String = "", val archived: Boolean = false,
 ) {
     val digest: String by lazy { vocabularyHash(JSONArray().apply { entries.forEach { put(VocabularyJson.entry(it)) } }.toString()) }
     fun selection() = VocabularySelection(id, version, name, digest, source, license, entries.size)
@@ -55,10 +58,21 @@ object VocabularyJson {
         put("id", e.id); put("expression", e.expression); put("meaning", e.meaning); put("example", e.example)
         put("tags", e.tags); put("original", e.original); put("line", e.line)
         put("aiMeaning", e.aiMeaning); put("aiExample", e.aiExample); put("aiProvenance", e.aiProvenance)
+        // Optional envelope preserves the exact JSON/digest of pre-Anki saved books.
+        if (e.source.isNotBlank() || e.details.isNotEmpty()) put("lexical", JSONObject().apply {
+            put("phonetic", e.phonetic); put("levels", e.levels); put("collins", e.collins); put("source", e.source)
+            put("details", JSONArray().apply { e.details.forEach { put(JSONObject().put("title", it.title).put("text", it.text)) } })
+        })
     }
     fun readEntry(j: JSONObject) = VocabularyEntry(j.getString("id"), j.getString("expression"), j.optString("meaning"),
         j.optString("example"), j.optString("tags"), j.optString("original"), j.optInt("line"),
-        j.optString("aiMeaning"), j.optString("aiExample"), j.optString("aiProvenance"))
+        j.optString("aiMeaning"), j.optString("aiExample"), j.optString("aiProvenance"),
+        phonetic = j.optJSONObject("lexical")?.optString("phonetic").orEmpty(),
+        levels = j.optJSONObject("lexical")?.optString("levels").orEmpty(),
+        collins = j.optJSONObject("lexical")?.optInt("collins") ?: 0,
+        source = j.optJSONObject("lexical")?.optString("source").orEmpty(),
+        details = DataJson.objects(j.optJSONObject("lexical")?.optJSONArray("details")).map {
+            VocabularyDetail(it.getString("title"), it.getString("text")) })
     fun selection(s: VocabularySelection) = JSONObject().apply {
         put("id", s.id); put("version", s.version); put("name", s.name); put("digest", s.digest)
         put("source", s.source); put("license", s.license); put("count", s.count); put("selectorVersion", s.selectorVersion)
@@ -70,13 +84,14 @@ object VocabularyJson {
     fun book(b: VocabularyBook) = JSONObject().apply {
         put("selection", selection(b.selection())); put("originalText", b.originalText); put("fileName", b.fileName)
         put("format", b.format); put("builtIn", b.builtIn); put("createdAt", b.createdAt); put("attribution", b.attribution)
+        if (b.archived) put("archived", true)
         put("entries", JSONArray().apply { b.entries.forEach { put(entry(it)) } })
     }
     fun readBook(j: JSONObject): VocabularyBook {
         val s = readSelection(j.getJSONObject("selection"))
         return VocabularyBook(s.id, s.version, s.name, s.source, s.license, j.optString("originalText"), j.optString("fileName"),
             j.optString("format", "TXT"), DataJson.objects(j.getJSONArray("entries")).map(::readEntry),
-            j.optBoolean("builtIn"), j.optLong("createdAt"), j.optString("attribution")).also {
+            j.optBoolean("builtIn"), j.optLong("createdAt"), j.optString("attribution"), j.optBoolean("archived")).also {
             check(it.digest == s.digest) { "词库校验失败，已保留原文件。" }
         }
     }

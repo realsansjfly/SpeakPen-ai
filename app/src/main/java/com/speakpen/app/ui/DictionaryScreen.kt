@@ -20,18 +20,27 @@ import com.speakpen.app.PracticeViewModel
 import com.speakpen.app.data.Dictionary
 import com.speakpen.app.data.VocabularyEntry
 import com.speakpen.app.data.vocabularyKey
+import com.speakpen.app.data.mergeDictionaryEntries
 
 /**
- * 单词本：本机字典（ECDICT 四级/六级/雅思，7638 词）按字母序浏览 + 双语搜索。
+ * 单词本：用户提供的 Anki 四级/六级/雅思词表，跨表合并义项后按字母浏览。
  * 点词开 [WordDetailDialog]；导入沿用设置里那套 TXT/CSV 导入。
  */
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun DictionaryScreen(state: PracticeState, vm: PracticeViewModel) {
+    if (state.vocabularyLoading) {
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            CircularProgressIndicator()
+            Text("词库正在加载…", Modifier.padding(top = 12.dp), color = Muted)
+        }
+        return
+    }
     var level by rememberSaveable { mutableStateOf("all") }
     var query by rememberSaveable { mutableStateOf("") }
     var importing by rememberSaveable { mutableStateOf(false) }
     val entries = remember(state.vocabularyBooks) {
-        state.vocabularyBooks.filter { it.builtIn }.flatMap { it.entries }.distinctBy { vocabularyKey(it.expression) }
+        mergeDictionaryEntries(state.vocabularyBooks.filter { it.builtIn && !it.archived }.flatMap { it.entries })
     }
     val filtered = remember(entries, level, query) {
         val needle = query.trim().lowercase()
@@ -47,7 +56,7 @@ fun DictionaryScreen(state: PracticeState, vm: PracticeViewModel) {
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 placeholder = { Text("搜英文单词或中文释义", color = Muted) },
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("all" to "全部", "cet4" to "四级", "cet6" to "六级", "ielts" to "雅思").forEach { (tag, label) ->
                     FilterChip(selected = level == tag, onClick = { level = tag }, label = { Text(label) })
                 }
@@ -78,7 +87,7 @@ fun DictionaryScreen(state: PracticeState, vm: PracticeViewModel) {
         }
         HorizontalDivider(color = Line)
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("释义来自 ECDICT（MIT），非官方大纲", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            Text("用户提供的 Anki 词表", color = Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { importing = true }) { Text("导入词库") }
         }
     }
@@ -90,17 +99,18 @@ private fun WordRow(entry: VocabularyEntry, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(entry.expression, style = MaterialTheme.typography.titleMedium)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(entry.expression, style = MaterialTheme.typography.headlineMedium)
                 if (entry.phonetic.isNotBlank()) {
-                    Spacer(Modifier.width(8.dp))
-                    Text("/${entry.phonetic}/", color = Muted, style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(entry.phonetic, color = Muted, style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Text(Dictionary.shortGloss(entry), color = Muted, style = MaterialTheme.typography.bodySmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(entry.effectiveMeaning.lineSequence().firstOrNull().orEmpty().split('；', ';').take(2).joinToString("；"),
+                Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            entry.example.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() }?.let { example ->
+                Text(example, Modifier.padding(top = 8.dp), color = Muted, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
-        if (entry.collins > 0) Text("★".repeat(entry.collins), color = Amber, style = MaterialTheme.typography.labelSmall)
     }
 }

@@ -30,13 +30,16 @@ data class PracticeState(
     val operationAnchorId: String? = null,
     val scenarioTemplates: List<ScenarioTemplate> = emptyList(), val scenarioSuccesses: List<ScenarioSuccess> = emptyList(),
     val scenarioPickerVisible: Boolean = false, val scenarioEditor: ScenarioTemplate? = null,
-    val vocabularyBooks: List<VocabularyBook> = emptyList(), val vocabularySaving: Boolean = false,
+    val vocabularyBooks: List<VocabularyBook> = emptyList(), val vocabularySaving: Boolean = false, val vocabularyLoading: Boolean = false,
     val vocabularySuggestion: VocabularySuggestion? = null, val meaningSuggestion: MeaningSuggestion? = null,
     // 查词弹窗：wordQuery 非空即打开；例句独立于全局 busy，避免演示时整屏被模态进度挡住。
     val wordQuery: String? = null, val wordExample: String? = null, val wordExampleQuery: String = "", val wordBusy: Boolean = false,
     val speakingPracticeId: String? = null, val recapVisible: Boolean = false, val recapKind: RecapKind = RecapKind.LATEST,
     val scenarioReviewPromptId: String? = null, val rewardPracticeId: String? = null,
     val correctionPendingId: String? = null, val correctionFailedId: String? = null,
+    val scenarioBrief: ScenarioTemplate? = null, val lessonVisible: Boolean = false,
+    val topicOptionsVisible: Boolean = false, val topicOptions: TopicOptions = TopicOptions(),
+    val retrievalStatus: String = "本地筛选可用", val retrievalVersion: String = "",
 ) {
     val settingsDirty: Boolean get() = settingsDraft?.let { SettingsUpdates.merge(settings, it) != settings } == true ||
         conversationDraft?.let { draft -> sessions.firstOrNull { it.id == settingsSessionId }?.config?.let { it != draft } } == true
@@ -48,7 +51,8 @@ data class PracticeState(
     val serviceConfigured: Boolean get() = ManagedService.configured(settings)
     val scenarioReadOnly: Boolean get() = session.scenario?.phase == ScenarioPhase.ENDED
     val scenarioOpeningNeeded: Boolean get() = session.scenario?.phase == ScenarioPhase.ACTIVE && session.messages.none { it.scenarioOpening }
-    val scenarioInputBlocked: Boolean get() = scenarioReadOnly || scenarioOpeningNeeded || session.scenario?.needsCheck == true
+    val scenarioInputBlocked: Boolean get() = session.lesson != null || scenarioReadOnly || scenarioOpeningNeeded || session.scenario?.needsCheck == true
+    val topicOpeningNeeded: Boolean get() = TopicOpening.needed(session)
 }
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
@@ -65,9 +69,20 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     var vocabularyImportFormat: VocabularyFormat = VocabularyFormat.TXT
     private val store = LocalStore(application)
     private val vocabularyStore = VocabularyStore(application)
-    private val vocabularyBooks = vocabularyStore.load()
+    // Anki assets contain ~19 MB of text. Parsing them must not delay the first frame.
+    private val vocabularyLoad = viewModelScope.async(Dispatchers.IO) { vocabularyStore.load() }
     /** 内置字典 + 导入词库合成的一张查词表；内置词本的条目自带中文释义。 */
-    private val dictionaryIndex by lazy { DictionaryIndex(vocabularyBooks.flatMap { it.entries }) }
+    private var indexedBooks: List<VocabularyBook>? = null
+    private var cachedDictionary = DictionaryIndex(emptyList())
+    private val dictionaryIndex: DictionaryIndex get() {
+        val books = state.value.vocabularyBooks
+        if (indexedBooks !== books) {
+            cachedDictionary = DictionaryIndex(books.filterNot { it.archived }.groupBy { it.id }.values
+                .map { versions -> versions.maxBy { it.createdAt } }.flatMap { it.entries })
+            indexedBooks = books
+        }
+        return cachedDictionary
+    }
     private var wordJob: Job? = null
     private val recordings = RecordingStore(application)
     private val ai = AiClient()
@@ -84,7 +99,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private val recoveredEditor = store.readEditorDraft(preferences)
     private val initialSession = saved.sessions.firstOrNull { it.id == saved.currentSessionId } ?: ChatSession(config = preferences.conversationDefaults)
     private val mutable = MutableStateFlow(SettingsUpdates.apply(PracticeState(
-        settings = preferences, vocabularyBooks = vocabularyBooks, sessions = saved.sessions.ifEmpty { listOf(initialSession) },
+        settings = preferences, vocabularyLoading = true, sessions = saved.sessions.ifEmpty { listOf(initialSession) },
         currentSessionId = initialSession.id, draft = initialSession.draft, library = saved.library, error = store.loadWarning,
         scenarioTemplates = saved.scenarioTemplates, scenarioSuccesses = saved.sessions.fold(saved) { data, session -> Scenarios.settle(data, session) }.scenarioSuccesses,
     ), preferences).let { initial ->
@@ -104,6 +119,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private var correctionJob: Job? = null
     private var correctionGeneration = 0
     private var practiceRecordingId: String? = null
+    private var lessonRecordingSession: String? = null
+    private var rerecordSegmentId: String? = null
     private val speech = SpeechController(application,
         onFile = { file, kind, duration -> acceptRecording(file, kind, duration) },
         onPhase = { phase -> mutable.update { it.copy(speechPhase = phase) } },
@@ -113,7 +130,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         onError = { error -> mutable.update { it.copy(error = error) } },
     )
     init {
-        vocabularyStore.warning?.let { error(it) }
+        viewModelScope.launch { readyVocabulary() }
         application.cacheDir.listFiles()?.filter { it.name.startsWith("utterance_") }?.forEach { it.delete() }
         if (saved != stored) persist()
         runCatching { store.saveSettings(preferences) }
@@ -145,6 +162,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (!state.value.settingsSaving) { mutable.update { it.copy(conversationDraft = value, settingsFeedback = null, settingsSaveError = false) }; protectSettingsDraft() }
     }
     fun saveVocabulary(book: VocabularyBook, onComplete: (VocabularyBook?) -> Unit) {
+        if (state.value.vocabularyLoading) { error("词库正在加载，请稍后重试。"); onComplete(null); return }
         if (state.value.vocabularySaving) return
         require(book.name.isNotBlank() && book.name.length <= 80 && book.source.isNotBlank() && book.source.length <= 500 && book.entries.isNotEmpty())
         val duplicate = state.value.vocabularyBooks.firstOrNull { it.id == book.id && it.version == book.version ||
@@ -209,6 +227,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun dismissMeaning() { mutable.update { it.copy(meaningSuggestion = null) } }
     /** 抽屉与单词本共用的查词入口：命中本地字典直接开详情，没命中由弹窗走 AI 兜底。 */
     fun lookupWord(raw: String) {
+        if (state.value.vocabularyLoading) { error("词库正在加载，请稍后重试。"); return }
         val query = Dictionary.query(raw)
         if (query == null) { error("请输入要查的英文单词或短语（48 个字符以内）。"); return }
         wordJob?.cancel()
@@ -246,7 +265,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             finally { mutable.update { it.copy(wordBusy = false) } }
         }
     }
-    /** 单词本 → 积累库：释义取本地字典，例句取用户主动生成的那条（如果有）。 */
+    /** 单词本 → 积累库：保留全部本地释义，优先使用卡片原例句。 */
     fun addWordToLibrary(entry: VocabularyEntry) {
         if (libraryItem(entry.expression) != null) {
             mutable.update { it.copy(notice = "「${entry.expression}」已在积累库。") }; return
@@ -254,16 +273,43 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         val level = Dictionary.levelsLabel(entry)
         upsert(ReviewItem(content = entry.expression,
             kind = if (entry.expression.contains(' ')) ReviewKind.PHRASE else ReviewKind.WORD,
-            meaning = Dictionary.shortGloss(entry),
-            example = state.value.wordExample?.takeIf { state.value.wordExampleQuery == entry.expression }.orEmpty(),
+            meaning = Dictionary.fullGloss(entry),
+            example = entry.example.ifBlank { state.value.wordExample?.takeIf { state.value.wordExampleQuery == entry.expression }.orEmpty() },
             reason = if (level.isEmpty()) "单词本" else "单词本：$level"))
     }
-    private fun vocabularySnapshot(session: ChatSession, context: String = session.messages.filter { it.isConversation }
+    private suspend fun readyVocabulary(): List<VocabularyBook> {
+        if (state.value.vocabularyLoading) {
+            val books = vocabularyLoad.await()
+            mutable.update { if (it.vocabularyLoading) it.copy(vocabularyBooks = books, vocabularyLoading = false,
+                error = it.error ?: vocabularyStore.warning) else it }
+        }
+        return state.value.vocabularyBooks
+    }
+    private suspend fun vocabularySnapshot(session: ChatSession, context: String = session.messages.filter { it.isConversation }
         .takeLast(8).joinToString("\n") { it.text }): GenerationSnapshot {
         val scene = session.scenario?.takeIf { it.phase == ScenarioPhase.ACTIVE }?.template?.let {
             "${it.name} ${it.aiRole} ${it.userRole}"
         }.orEmpty()
-        return GenerationSnapshot.capture(session, VocabularyCandidates.prepare(session, state.value.vocabularyBooks, "$scene\n$context"))
+        val books = if (session.config.vocabulary != null) readyVocabulary() else state.value.vocabularyBooks
+        val options = session.config.enhancement
+        val scopedContext = if (options.scope == RetrievalScope.TURN) session.messages.lastOrNull { it.role == "user" }?.text ?: context else context
+        val fallback = withContext(Dispatchers.Default) { VocabularyCandidates.prepare(session, books, "$scene\n$scopedContext") }
+        val selected = fallback.vocabulary
+        if (selected == null || !options.enabled || state.value.settings.demoMode) return GenerationSnapshot.capture(session, fallback)
+        try {
+            val (version, ids) = withTimeout(3000) { ai.vocabularySearch(ManagedService.config(state.value.settings), "$scene\n$scopedContext", selected, options, session.config.difficulty) }
+            val book = books.first { it.id == selected.id && it.version == selected.version }
+            val candidates = ids.mapNotNull { id -> book.entries.firstOrNull { it.id == id } }.map {
+                VocabularyEntry(it.id, it.expression, it.effectiveMeaning.take(120))
+            }
+            if (candidates.isEmpty()) throw IllegalStateException()
+            mutable.update { it.copy(retrievalStatus = "语义关联可用", retrievalVersion = version) }
+            return GenerationSnapshot.capture(session, fallback.copy(vocabulary = selected.copy(candidates = candidates)))
+        } catch (error: CancellationException) {
+            if (error !is TimeoutCancellationException) throw error
+        } catch (_: Exception) { /* Safe local fallback must never block a reply. */ }
+        mutable.update { it.copy(retrievalStatus = "暂用本地筛选") }
+        return GenerationSnapshot.capture(session, fallback)
     }
     fun revertSettings() {
         if (!state.value.settingsSaving) mutable.update { it.copy(settingsDraft = it.settings,
@@ -322,11 +368,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         } catch (_: Exception) { error("设置保存失败，请重试。"); false }
     }
     fun connect(raw: String) {
+        if (BuildConfig.FIXED_SERVICE) return
         if (state.value.busy != null || state.value.voiceActive) { error("请先结束当前操作，再打开配对链接。"); return }
         try {
             val connection = ServicePairing.parse(raw)
             if (!preferences(state.value.settings.copy(serviceUrl = connection.baseUrl, serviceAccessToken = connection.accessToken, demoMode = false))) return
-            mutable.update { it.copy(page = if (it.page == 2) 2 else 0, notice = "已连接电脑的口语服务。") }
+            mutable.update { it.copy(page = if (it.page == 2) 2 else 0, notice = "已连接口语服务。") }
             checkService()
         } catch (_: Exception) { error("服务连接链接无效，请复制电脑新生成的完整服务入口。"); }
     }
@@ -341,7 +388,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 if (state.value.settings.serviceUrl == settings.serviceUrl) mutable.update { it.copy(serviceStatus = result.label, serviceOnline = true, conversationControlsSupported = result.conversationControlsSupported) }
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) {
-                mutable.update { it.copy(serviceStatus = "连接已失效或网络不可达。请重新启动电脑服务，扫描新入口；也可点“重新连接”粘贴入口。", serviceOnline = false) }
+                mutable.update { it.copy(serviceStatus = if (BuildConfig.FIXED_SERVICE) "暂时无法连接云端服务，请检查网络后重试。"
+                    else "服务暂时不可达，请检查网络或在设置中更新服务入口。", serviceOnline = false) }
             }
         }
     }
@@ -372,6 +420,95 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             scenarioPickerVisible = false, scenarioEditor = null, draft = "", error = null, notice = "已开始场景：${template.name}" ) }
         persist()
         if (session.messages.isEmpty()) generateScenarioOpening() else checkScenario()
+    }
+    fun showScenarioBrief(template: ScenarioTemplate?) { mutable.update { it.copy(scenarioBrief = template, scenarioPickerVisible = false) } }
+    fun directScenario(template: ScenarioTemplate) { showScenarioBrief(null); startScenario(template) }
+    fun material(template: ScenarioTemplate): ScenarioMaterial = ScenarioMaterials.read(
+        getApplication<Application>().assets.open("scenarios/material.json").bufferedReader().use { it.readText() }, template)
+    fun learnScenario(template: ScenarioTemplate) {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val existing = state.value.sessions.firstOrNull { it.lesson?.template?.id == template.id }
+        if (existing != null) { selectSession(existing.id); mutable.update { it.copy(scenarioBrief = null, lessonVisible = true) }; return }
+        val session = ChatSession(title = "示范：${template.name}", mode = ConversationMode.SCENARIO,
+            config = state.value.settings.conversationDefaults, lesson = LessonProgress(template))
+        mutable.update { it.copy(sessions = listOf(session) + it.sessions, currentSessionId = session.id,
+            page = 0, draft = "", scenarioBrief = null, lessonVisible = true) }
+        persist()
+    }
+    fun lessonVisible(visible: Boolean) {
+        if (state.value.voiceActive) { error("请先结束录音，学习进度会保留。"); return }
+        if (!visible && state.value.busy != null) cancelOperation()
+        stopSpeaking(); mutable.update { it.copy(lessonVisible = visible) }
+    }
+    private fun updateLesson(value: LessonProgress) { updateSession(state.value.session.copy(lesson = value)) }
+    fun lessonTranscript(text: String) { state.value.session.lesson?.let { updateLesson(it.copy(transcript = text.take(3000), feedback = "")) } }
+    fun nextLesson() {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val p = state.value.session.lesson ?: return
+        if (p.stage == LessonStage.READY) return
+        if (p.stage != LessonStage.LISTEN && p.feedback.isBlank()) { error("先录音或输入，再获取反馈。"); return }
+        val next = if (p.stage == LessonStage.WARM_UP) {
+            if (p.chunk + 1 >= material(p.template).chunks.size) p.copy(stage = LessonStage.READY)
+            else p.copy(stage = LessonStage.LISTEN, chunk = p.chunk + 1)
+        } else p.copy(stage = LessonStage.entries[p.stage.ordinal + 1])
+        updateLesson(next.copy(transcript = "", feedback = "", audio = "", durationMs = 0))
+    }
+    fun previousLesson() {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val p = state.value.session.lesson ?: return
+        val previous = if (p.stage == LessonStage.LISTEN && p.chunk > 0) p.copy(stage = LessonStage.WARM_UP, chunk = p.chunk - 1)
+            else if (p.stage == LessonStage.READY) p.copy(stage = LessonStage.WARM_UP)
+            else p.copy(stage = LessonStage.entries[(p.stage.ordinal - 1).coerceAtLeast(0)])
+        updateLesson(previous.copy(transcript = "", feedback = "", audio = "", durationMs = 0))
+    }
+    private var lessonPlayback: Job? = null
+    fun listenLesson(line: Int? = null) {
+        val p = state.value.session.lesson ?: return
+        val content = material(p.template)
+        if (line != null) {
+            val text = content.dialogue.getOrNull(line) ?: return
+            playMessage(ChatMessage(id = "lesson-${p.template.id}-line-$line", role = "assistant", text = text.substringAfter(": ")))
+            return
+        }
+        stopSpeaking()
+        val sessionId = state.value.currentSessionId
+        lessonPlayback = viewModelScope.launch {
+            for ((index, text) in content.playbackParts().withIndex()) {
+                if (!foreground || state.value.currentSessionId != sessionId || !state.value.lessonVisible) break
+                val id = "lesson-${p.template.id}-part-$index"
+                playMessageAudio(ChatMessage(id = id, role = "assistant", text = text))
+                while (state.value.preparingVoiceId == id || state.value.playingId == id) delay(80)
+                if (state.value.error != null) break
+            }
+        }
+    }
+    fun feedbackLesson() {
+        val p = state.value.session.lesson ?: return
+        if (p.transcript.isBlank() || !canUseService()) return
+        val id = state.value.currentSessionId
+        runOperation("根据转写整理反馈…") {
+            val result = if (state.value.settings.demoMode) "示例反馈：请核对是否保留关键意思。真实评价需要连接服务。" else
+                LessonProtocol.parse(ai.structuredLearning(ManagedService.config(state.value.settings), LessonProtocol.prompt(p, material(p.template))))
+            if (state.value.currentSessionId == id && state.value.session.lesson == p) updateLesson(p.copy(feedback = result))
+        }
+    }
+    fun transcribeLesson() {
+        val p = state.value.session.lesson ?: return
+        if (p.audio.isBlank() || !canUseService()) return
+        val id = state.value.currentSessionId
+        runOperation("正在转写学习录音…") {
+            val text = if (state.value.settings.demoMode) "[示例模式未真实转写，可手动填写]" else
+                ai.transcribe(ManagedService.config(state.value.settings), recordings.file(p.audio), InputKind.ENGLISH, emptyList())
+            if (state.value.currentSessionId == id && state.value.session.lesson == p) updateLesson(p.copy(transcript = text, feedback = ""))
+        }
+    }
+    fun beginLearnedScenario() {
+        if (state.value.busy != null || state.value.voiceActive) return
+        stopSpeaking()
+        val old = state.value.session; val p = old.lesson ?: return
+        val started = Scenarios.start(p.template, old.config).copy(id = old.id, createdAt = old.createdAt)
+        updateSession(started); mutable.update { it.copy(lessonVisible = false) }
+        if (started.messages.isEmpty()) generateScenarioOpening()
     }
     fun toggleScenarioGoals() { val s = state.value.session; val p = s.scenario ?: return; updateSession(s.copy(scenario = p.copy(goalsCollapsed = !p.goalsCollapsed))) }
     fun correctScenarioGoal(goalId: String, achieved: Boolean, note: String) {
@@ -445,7 +582,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     }
     fun send() {
         val current = state.value
-        if (current.scenarioInputBlocked) return
+        if (current.session.voiceQueue.isNotEmpty()) { error("请先提交或删除待处理录音，文字草稿已保留。"); return }
+        if (current.scenarioInputBlocked || current.topicOpeningNeeded) return
         if (current.draft.isBlank() || current.voiceActive || current.busy != null) return
         if (current.needsReply || current.pendingVoice != null) { error("请先重试上一条消息或重说。草稿已保留。"); return }
         if (!canUseService()) return
@@ -462,6 +600,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             updatedAt = System.currentTimeMillis()))
     }
     fun startConversation(topic: String = "") {
+        if (topic.isNotBlank()) { startTopic(topic); return }
         if (state.value.session.scenario?.phase == ScenarioPhase.ACTIVE) { generateScenarioOpening(); return }
         if (state.value.session.messages.isNotEmpty()) return
         mutable.update { it.copy(draft = when {
@@ -470,6 +609,38 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             else -> "Hi! Let's have a conversation."
         }, inputKind = InputKind.ENGLISH) }
         send()
+    }
+    fun startTopic(topic: String): Boolean {
+        val current = state.value
+        if (current.busy != null || current.voiceActive || current.session.scenario != null || current.session.messages.isNotEmpty()) return false
+        if (topic.trim().length !in 2..130 || !canUseService()) return false
+        stopSpeaking()
+        updateSession(TopicOpening.select(current.session, topic))
+        generateTopicOpening()
+        return true
+    }
+    fun retryTopicOpening() { if (state.value.topicOpeningNeeded) generateTopicOpening() }
+    fun abandonTopicOpening() {
+        if (state.value.busy != null || !state.value.topicOpeningNeeded) return
+        updateSession(state.value.session.copy(openingTopic = "", title = "新的练习"))
+        mutable.update { it.copy(error = null, notice = null, streamingText = "") }
+    }
+    private fun generateTopicOpening() {
+        val session = state.value.session
+        if (!TopicOpening.needed(session) || state.value.busy != null || !canUseService()) return
+        runOperation("AI 正在准备开场…") {
+            val snapshot = vocabularySnapshot(session, session.openingTopic); val token = operationGeneration
+            try {
+                val text = if (state.value.settings.demoMode) "What comes to mind when you think about this topic: ${session.openingTopic}?（示例）"
+                    else ai.streamChat(ManagedService.config(state.value.settings), TopicOpening.prompts(session.copy(config = snapshot.config),
+                        state.value.library.filter { it.id in session.targetIds }), snapshot.config.advanced) { text -> publishStreamingText(snapshot, token, text) }
+                if (!isCurrent(snapshot, token)) return@runOperation
+                val latest = state.value.session
+                val opened = TopicOpening.complete(latest, text, snapshot)
+                updateSession(opened)
+                if (state.value.settings.autoSpeak && foreground) playMessage(opened.messages.last())
+            } finally { if (token == operationGeneration) mutable.update { it.copy(streamingText = "") } }
+        }
     }
     fun reply() {
         if (state.value.scenarioInputBlocked) return
@@ -506,6 +677,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     }
     fun redo() {
         if (state.value.busy != null || state.value.voiceActive) return
+        if (state.value.session.voiceQueue.isNotEmpty()) { error("待提交录音已保留。请先提交或逐段删除，再回退上一轮。"); return }
         val session = state.value.session
         val index = session.messages.indexOfLast { it.role == "user" }; if (index < 0) return
         val message = session.messages[index]
@@ -521,33 +693,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         mutable.update { it.copy(draft = if (message.audioFileName.isBlank()) message.text else "", inputKind = message.inputKind,
             streamingText = "", notice = "上一轮已回退，可以重新说一遍。") }
     }
-    fun layeredHint() {
-        if (state.value.scenarioReadOnly || !canUseService()) return
-        val session = state.value.session
-        val context = session.messages.filter { it.isConversation && it.text.isNotBlank() }.takeLast(8)
-        if (context.isEmpty()) { error("先开启对话，再获取表达提示。"); return }
-        val existing = session.messages.lastOrNull { it.hintKind == HintKind.SCAFFOLD && LearningFeatures.hintCurrent(session, it) }
-        if (existing != null) {
-            hintCollapsed(existing.id, false)
-            mutable.update { it.copy(scrollToMessageId = existing.id) }; return
-        }
-        runOperation("准备表达提示…") {
-            val snapshot = vocabularySnapshot(session); val token = operationGeneration
-            val layers = if (state.value.settings.demoMode) listOf("think：思考；moment：片刻", "Could you give me ___?\n填入你需要的时间。", "Could you give me a moment to think?\n示例：能给我一点时间想一想吗？") else
-                LearningFeatureProtocol.parseScaffold(ai.structuredLearning(ManagedService.config(state.value.settings),
-                    LearningFeatureProtocol.scaffold(session.copy(messages = context, config = snapshot.config))))
-            if (!isCurrent(snapshot, token)) return@runOperation
-            appendHint(session.id, ChatMessage(role = "hint", text = layers.first(), hintKind = HintKind.SCAFFOLD,
-                sourceMessageId = context.last().id, hintContextIds = context.map { it.id }, hintContextDigest = LearningFeatures.contextDigest(context),
-                hintLayers = layers, generationConfig = snapshot.config, configRevision = snapshot.configRevision))
-        }
-    }
     fun revealHint(id: String) { updateSession(LearningFeatures.reveal(state.value.session, id)) }
     private fun cancelCorrection() {
         correctionGeneration++; correctionJob?.cancel()
         mutable.update { it.copy(correctionPendingId = null, correctionFailedId = null) }
     }
-    private fun clearLearningSurfaces() { practiceRecordingId = null; mutable.update { it.copy(speakingPracticeId = null, recapVisible = false,
+    private fun clearLearningSurfaces() { practiceRecordingId = null; lessonRecordingSession = null; rerecordSegmentId = null; mutable.update { it.copy(lessonVisible = false, topicOptionsVisible = false, scenarioBrief = null, speakingPracticeId = null, recapVisible = false,
         scenarioReviewPromptId = null, rewardPracticeId = null) } }
     fun retryCorrection(id: String) {
         val config = state.value.session.messages.firstOrNull { it.replyToMessageId == id }?.generationConfig ?: state.value.session.config
@@ -715,19 +866,22 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 sourceMessageId = id, hintContextIds = context.map { it.id }, hintContextDigest = LearningFeatures.contextDigest(context)))
         }
     }
-    fun topicExpressions() {
+    fun showTopicOptions(visible: Boolean) { mutable.update { it.copy(topicOptionsVisible = visible) } }
+    fun topicExpressions(options: TopicOptions = state.value.topicOptions) {
         if (state.value.scenarioReadOnly) return
         if (!canUseService()) return
+        val context = try { TopicRound.latest(state.value.session.messages) } catch (e: Exception) { error(e.message.orEmpty()); return }
+        mutable.update { it.copy(topicOptions = options, topicOptionsVisible = false) }
         runOperation("准备当前话题的地道表达…") {
             val session = state.value.session
-            val snapshot = vocabularySnapshot(session); val token = operationGeneration
-            val context = session.messages.filter { it.isConversation && it.text.isNotBlank() }.takeLast(12)
-            require(context.isNotEmpty()) { "先开启一个话题，再获取相关语料。" }
-            val text = if (state.value.settings.demoMode) "Talking about your day\n\n• catch up over coffee — 喝咖啡叙叙旧\nI caught up with a friend over coffee.\n\n• look forward to — 期待\nI'm looking forward to the weekend.\n\n（示例语料）"
-                else ai.learning(ManagedService.config(state.value.settings), LearningPrompts.topic(context, snapshot.config))
+            val snapshot = GenerationSnapshot.capture(session); val token = operationGeneration
+            val text = if (state.value.settings.demoMode) options.purpose.label + "（本地示例）\n\n" + (1..options.count).joinToString("\n\n") {
+                "$it. Could you tell me more about that?\n想了解对方刚才提到的内容时使用。\nThat sounds interesting. Could you tell me more about that?\n听起来很有趣，可以再说说吗？"
+            } else TopicBankProtocol.parse(ai.structuredLearning(ManagedService.config(state.value.settings), LearningPrompts.topic(context, session.config, options), "topic_bank"), options)
             if (!isCurrent(snapshot, token)) return@runOperation
             appendHint(session.id, ChatMessage(role = "hint", text = text, hintKind = HintKind.TOPIC, hintContextIds = context.map { it.id },
-                generationConfig = snapshot.config, configRevision = snapshot.configRevision))
+                generationConfig = snapshot.config, configRevision = snapshot.configRevision,
+                topicOptions = options))
         }
     }
     private fun appendHint(sessionId: String, hint: ChatMessage) {
@@ -743,6 +897,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun scrollConsumed(id: String) { mutable.update { if (it.scrollToMessageId == id) it.copy(scrollToMessageId = null) else it } }
     fun regenerate(id: String) {
         val selected = state.value.session.messages.firstOrNull { it.id == id } ?: return
+        if (selected.hintKind == HintKind.SCAFFOLD) { error("历史表达提示仅供阅读。"); return }
         if (state.value.scenarioReadOnly || Scenarios.frozen(state.value.session, id) || selected.scenarioOpening) return
         if (selected.role == "user" || !canUseService()) return
         runOperation("重新生成这条${if (selected.isHint) "提示" else "回复"}…", anchorId = selected.id) {
@@ -763,21 +918,25 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                             LearningFeatureProtocol.optimize(scoped.copy(messages = context.filterNot { it.id == original.id } + original), original)))
                         reference = result.reference; result.text
                     }
-                    HintKind.SCAFFOLD -> {
-                        layers = LearningFeatureProtocol.parseScaffold(ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.scaffold(scoped)))
-                        layers.first()
-                    }
+                    HintKind.SCAFFOLD -> throw IllegalStateException("历史表达提示仅供阅读。")
                     HintKind.CORRECTION -> {
                         val original = requireNotNull(session.messages.firstOrNull { it.id == selected.sourceMessageId })
                         LearningFeatureProtocol.parseCorrection(ai.structuredLearning(ManagedService.config(state.value.settings), LearningFeatureProtocol.correction(scoped, original, config)), original)
                             .ifBlank { "这次未发现需要纠正的明确错误。" }
                     }
-                    else -> ai.learning(ManagedService.config(state.value.settings), LearningPrompts.topic(context, config))
+                    else -> {
+                        val round = TopicRound.latest(session.messages)
+                        require(round.map { it.id } == selected.hintContextIds) { "最新一轮已变化，请重新打开话题语料。" }
+                        val options = selected.topicOptions ?: TopicOptions()
+                        TopicBankProtocol.parse(ai.structuredLearning(ManagedService.config(state.value.settings), LearningPrompts.topic(round, config, options), "topic_bank"), options)
+                    }
                 }
             } else {
                 val before = session.copy(messages = session.messages.takeWhile { it.id != id })
                 val targets = state.value.library.filter { it.id in session.targetIds }
-                ai.chat(ManagedService.config(state.value.settings), listOf("system" to (CoachPrompts.system(session.mode, targets, config) + "\n" + ScenarioProtocol.roleInstruction(session))) + CoachPrompts.history(before), advanced = config.advanced)
+                val prompts = if (TopicOpening.needed(before)) TopicOpening.prompts(before.copy(config = config), targets)
+                    else listOf("system" to (CoachPrompts.system(session.mode, targets, config) + "\n" + ScenarioProtocol.roleInstruction(session))) + CoachPrompts.history(before)
+                ai.chat(ManagedService.config(state.value.settings), prompts, advanced = config.advanced)
             }
             if (!isCurrent(snapshot, token)) return@runOperation
             stopSpeaking()
@@ -810,9 +969,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         mutable.update { it.copy(library = it.library.map { item -> if (item.id == id) ReviewSchedule.update(item, remembered) else item }, notice = if (remembered) "已安排下次复习。" else "已标为需要再练。") }; persist()
     }
     fun playMessage(message: ChatMessage) {
+        lessonPlayback?.cancel(); lessonPlayback = null
+        playMessageAudio(message)
+    }
+    private fun playMessageAudio(message: ChatMessage) {
         if (state.value.voiceActive) return
         val wasPlaying = state.value.playingId == message.id || state.value.preparingVoiceId == message.id
-        stopSpeaking()
+        stopSpeechAudio()
         if (wasPlaying) return
         if (message.audioFileName.isNotBlank()) {
             runCatching { speech.play(recordings.file(message.audioFileName), message.id) }.onFailure { error("录音不可用，请重试。") }
@@ -834,28 +997,63 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         }
     }
     fun speak(text: String) { if (!state.value.voiceActive) speech.speak(text) }
-    fun stopSpeaking() { speechGeneration++; speechJob?.cancel(); speech.stopPlayback(); mutable.update { it.copy(preparingVoiceId = null) } }
+    private fun stopSpeechAudio() { speechGeneration++; speechJob?.cancel(); speech.stopPlayback(); mutable.update { it.copy(preparingVoiceId = null) } }
+    fun stopSpeaking() { lessonPlayback?.cancel(); lessonPlayback = null; stopSpeechAudio() }
     fun startRecording() {
         val current = state.value
+        if (current.lessonVisible && current.session.lesson != null) {
+            if (current.busy != null || current.voiceActive) return
+            stopSpeaking(); lessonRecordingSession = current.currentSessionId
+            speech.start(SpeechMode.CLOUD, InputKind.ENGLISH); return
+        }
+        lessonRecordingSession = null
         if (current.speakingPracticeId != null) { startPracticeRecording(); return }
-        if (current.scenarioInputBlocked) return
+        if (current.scenarioInputBlocked || current.topicOpeningNeeded) return
         if (current.busy != null || current.voiceActive) return
         if (current.needsReply || current.pendingVoice != null) { error("请先处理上一条消息，或点击重说。"); return }
         if (!canUseService()) return
         mutable.update { it.copy(error = null, notice = null) }
         stopSpeaking()
         practiceRecordingId = null
-        speech.start(SpeechMode.CLOUD, current.inputKind)
+        if (current.session.voiceQueue.isNotEmpty() && !current.settings.multiSegmentVoice) { error("多段队列已保留，请先提交或删除后再录音。"); return }
+        val queue = current.session.voiceQueue.filterNot { it.id == rerecordSegmentId }
+        if (current.settings.multiSegmentVoice && (queue.size >= VoiceQueue.MAX_SEGMENTS || VoiceQueue.MAX_MS - queue.sumOf { it.durationMs } < 750)) {
+            error("最多 6 段、总时长 3 分钟，请先提交或删除片段。"); return
+        }
+        speech.start(SpeechMode.CLOUD, current.inputKind, if (current.settings.multiSegmentVoice)
+            (VoiceQueue.MAX_MS - queue.sumOf { it.durationMs } - 250).coerceAtMost(60000).toInt() else 60000)
     }
     fun stopRecording() { speech.stop(); if (!state.value.voiceActive) practiceRecordingId = null }
-    fun cancelRecording() { speech.cancel(); practiceRecordingId = null; mutable.update { it.copy(notice = "已取消，这段录音没有发送。") } }
+    fun cancelRecording() { speech.cancel(); practiceRecordingId = null; lessonRecordingSession = null; rerecordSegmentId = null; mutable.update { it.copy(notice = "已取消，已保存的录音仍保留。") } }
     private fun acceptRecording(file: File, kind: InputKind, duration: Long) {
+        lessonRecordingSession?.let { id ->
+            lessonRecordingSession = null
+            val lesson = state.value.session.lesson
+            if (id != state.value.currentSessionId || lesson == null) { file.delete(); return }
+            try { val name = recordings.save(file); updateLesson(lesson.copy(audio = name, durationMs = duration, transcript = "", feedback = "")); transcribeLesson() }
+            catch (_: Exception) { error("学习录音保存失败，请重试。进度已保留。"); file.delete() }
+            return
+        }
         practiceRecordingId?.let { id ->
             practiceRecordingId = null
             acceptPracticeRecording(id, file, duration)
             return
         }
-        if (state.value.scenarioInputBlocked) { file.delete(); return }
+        if (state.value.scenarioInputBlocked || state.value.topicOpeningNeeded) { file.delete(); return }
+        if (state.value.settings.multiSegmentVoice) {
+            try {
+                val session = state.value.session
+                val old = session.voiceQueue.firstOrNull { it.id == rerecordSegmentId }
+                VoiceQueue.append(session.voiceQueue.filterNot { it.id == old?.id }, VoiceSegment(file = "pending", durationMs = duration))
+                val name = recordings.save(file)
+                val segment = VoiceSegment(id = old?.id ?: newId(), file = name, durationMs = duration, kind = kind)
+                val queue = if (old == null) VoiceQueue.append(session.voiceQueue, segment) else session.voiceQueue.map { if (it.id == old.id) segment else it }
+                updateSession(session.copy(voiceQueue = queue))
+                mutable.update { it.copy(notice = "已保存 ${queue.size} 段，提交后统一转写。") }
+            } catch (e: Exception) { file.delete(); error(e.message ?: "保存失败，请重录。已有片段已保留。") }
+            rerecordSegmentId = null
+            return
+        }
         try {
             val filename = recordings.save(file)
             val message = ChatMessage(role = "user", text = "", inputKind = kind, fromVoice = true,
@@ -863,6 +1061,52 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             appendUser(message)
             transcribe(message.id)
         } catch (_: Exception) { file.delete(); error("保存录音失败，请重新录制。") }
+    }
+    fun deleteSegment(id: String) {
+        if (state.value.busy != null || state.value.voiceActive) return
+        val session = state.value.session
+        updateSession(session.copy(voiceQueue = session.voiceQueue.filterNot { it.id == id }))
+        // Files are retained until a later storage cleanup so an interrupted atomic write cannot lose audio.
+    }
+    fun rerecordSegment(id: String) { if (state.value.busy == null && !state.value.voiceActive) {
+        rerecordSegmentId = id; mutable.update { it.copy(notice = "录下一段将替换此片段；取消录音会保留原片段。") }
+    } }
+    fun playSegment(segment: VoiceSegment) { playMessage(ChatMessage(id = segment.id, role = "user", text = segment.text,
+        audioFileName = segment.file, audioDurationMs = segment.durationMs)) }
+    fun submitSegments() {
+        if (state.value.busy != null || state.value.voiceActive || state.value.scenarioInputBlocked || state.value.needsReply || !canUseService()) return
+        val sourceId = state.value.currentSessionId
+        if (state.value.session.voiceQueue.isEmpty()) return
+        runOperation("正在整合录音…") {
+            val initial = state.value.session.voiceQueue
+            for (segment in initial) {
+                if (segment.text.isNotBlank() && !segment.failed) continue
+                try {
+                    val text = if (state.value.settings.demoMode) "[示例片段，未真实转写]" else ai.transcribe(ManagedService.config(state.value.settings),
+                        recordings.file(segment.file), segment.kind, emptyList())
+                    require(text.isNotBlank()) { "未识别到内容。" }
+                    val session = state.value.sessions.first { it.id == sourceId }
+                    updateSession(session.copy(voiceQueue = session.voiceQueue.map { if (it.id == segment.id) it.copy(text = text, failed = false) else it }))
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) {
+                    val session = state.value.sessions.first { it.id == sourceId }
+                    updateSession(session.copy(voiceQueue = session.voiceQueue.map { if (it.id == segment.id) it.copy(failed = true) else it }))
+                    throw IllegalStateException("部分录音转写失败，整个队列已保留。再次提交只重试未成功片段。")
+                }
+            }
+            if (state.value.currentSessionId != sourceId) return@runOperation
+            val session = state.value.session; val queue = session.voiceQueue
+            val message = ChatMessage(role = "user", text = VoiceQueue.combined(queue), fromVoice = true,
+                inputKind = if (queue.any { it.kind == InputKind.HELP }) InputKind.HELP else InputKind.ENGLISH,
+                audioDurationMs = queue.sumOf { it.durationMs }, transcriptState = TranscriptState.READY, audioSegments = queue)
+            // Clear the queue and append ONE message in the same persisted snapshot, before invoking AI.
+            updateSession(session.copy(voiceQueue = emptyList(), messages = session.messages + message))
+            val saved = CompletableDeferred<Boolean>(); persist { saved.complete(it) }
+            if (!saved.await()) {
+                updateSession(session); throw IllegalStateException("整合结果保存失败，队列已恢复，请重试。")
+            }
+            generateReply()
+        }
     }
     fun transcribe(id: String) {
         if (state.value.scenarioReadOnly || Scenarios.frozen(state.value.session, id)) return
@@ -908,7 +1152,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun foreground() { foreground = true; mutable.update { it.copy(appForeground = true) } }
     fun background() {
         foreground = false; mutable.update { it.copy(appForeground = false) }
-        if (state.value.voiceActive) { speech.cancel(); practiceRecordingId = null }
+        if (state.value.voiceActive) { speech.cancel(); practiceRecordingId = null; lessonRecordingSession = null; rerecordSegmentId = null }
         stopSpeaking()
         draftPersistJob?.cancel(); persist()
         if (state.value.page == 2 && (state.value.settingsDirty || state.value.settingsSaveError)) saveSettings()

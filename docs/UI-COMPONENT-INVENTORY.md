@@ -17,7 +17,7 @@
 
 | ID | 模块／位置 | 语义类型 → 当前实现 | 变体／状态与检查点 |
 |---|---|---|---|
-| APP-01 | 页面框架与导航 | App shell＋左侧导航抽屉 → `PracticeNavigation`、`ModalNavigationDrawer`、`AnimatedContent` | 底栏已移除；75% 宽抽屉含本机身份、查词框、积累库、单词本、时间分组历史和底部设置；独立设置页／库页返回。录音与保存禁用竞争导航，设备返回与手势待验。 |
+| APP-01 | 页面框架与导航 | App shell＋左侧导航抽屉 → `PracticeNavigation`、`ModalNavigationDrawer`、`AnimatedContent` | 75% 宽抽屉；话题圆柱显示且抽屉关闭时禁用侧滑打开，菜单仍可打开。抽屉已打开或正在打开时恢复 gesturesEnabled，支持右侧遮罩点击、左滑及系统返回关闭；录音／保存仍限制导航操作。原生真机手势待验。 |
 | APP-02 | 页面顶部全局反馈 | Inline alert／Status notice → `InlineNotice` | 错误容器／蓝色普通提示、可关闭；error 优先于 notice。检查是否应更贴近出错区域、读屏更新与持续时间。 |
 | APP-03 | 非聊天页的在途任务 | Inline operation status＋Cancel → `Row`、`TextButton` | busy 非空且不在聊天页时出现。取消操作需要始终可达，避免与其他反馈重复。 |
 | SHARED-01 | 主题、字体、形状 | Design tokens → `SpeakPenTheme`、`MaterialTheme` | 浅色绿白、Nunito、语义色与圆角；更新时检查消费者，不把 Token 值重复写成组件约束。 |
@@ -34,13 +34,14 @@
 | CHAT-01 | 聊天顶部 | 单行 Header → `ChatHeader` | 左抽屉、中间模式、右新对话；标题与正常连接常驻说明移除，异常仍用 InlineNotice。 |
 | CHAT-02 | 模式选择 | 互斥 Tab＋滑动选中背景 → `ChatHeader` | 自由聊天／场景；收藏练习移至积累库入口，恢复旧练习显示目标；AI 回复原文开关在设置。 |
 | CHAT-03 | 当前任务摘要 | Context metadata → 收藏练习目标文字；场景摘要 | 难度移入设置不再常驻；必要练习目标和场景进度仍保留。 |
-| CHAT-04 | 首次对话 | Empty state＋本地话题流＋“换一批” → `TopicSuggestions` | dev06 从 440 条本地话题抽取 18 条，进入／换批时重选及独立随机行起点，相邻两批无重复；26／32 dp 每秒。点选填草稿，换批不改草稿；触摸／焦点暂停所在行，输入／抽屉／后台停动，读屏或关闭动画时静态可横滑，小高度减少行数。IO 读取失败可重试。原生观感待验。 |
+| CHAT-04 | 首次对话 | 本地 CSS 3D 圆柱话题＋聚焦确认 → `TopicSuggestions` / `home/topic-cylinder.html` | dev10：显式 APK 文档路由，验证脚本／正尺寸视口／完整话题／可视状态后展示；加载时可用原生列表，超时、页面／脚本／渲染失败保留原生选择与动效重试。保留原生“列表”切换入口，处理 DOM 正常但设备合成异常时的手动恢复。兼容旧 WebView 的尺寸观察与系统动画监听。440 条中抽 18 条，4 层柱面，近实远虚，中央标题上下浮动；6°/秒自转，水平拖动、帧率无关的惯性与平滑回落；“换一批”900ms 快转后换批。“随便！”与点选共用完整话题放大、背景模糊和确定／取消；取消恢复，确认才经原生桥发起 AI 首问。源码后续修复：圆柱按下后父层不截获触摸，话题页关闭抽屉侧滑；抽屉可见性变化只暂停，不换批。键盘、读屏／减少动效、字体 >1.35 倍及小高度转可滚动列表；系统返回取消，抽屉／输入／后台暂停。WebView 仅本地白名单资源，禁网络／文件／内容访问，无 API 凭据。浏览器组件检查通过；最新 Android 手势修复未打包，真机待验。 |
+| CHAT-14 | 话题开场与恢复 | Assistant-first opening＋重试 → `TopicOpening` / `PracticeViewModel` / `ChatScreen` | 确认保存话题上下文，不写用户消息或剪贴板；AI 重组为英文首问，遵守难度与词库配置；失败／取消保留话题并显示重试／返回选话题，禁止抢发用户消息；首条回复可重新生成，旧草稿保留。存储与请求快照检查由 JVM 测试覆盖，真实模型首问另有实测记录。 |
 | CHAT-05 | 消息流 | Conversation list → `LazyColumn`＋`MessageCard` | 按消息 ID、操作锚点／最新项滚动；检查长列表、流式更新、用户阅读位置。 |
 | CHAT-06 | 用户／AI 消息 | Message bubble＋Audio player＋Disclosure → `MessageCard` | 用户绿／AI 白，音频／文字，播放／准备／原文展开；转写 pending，失败后的重试／补充文字，用户“这里卡了”。检查操作对象与等待反馈。 |
-| CHAT-07 | 学习辅助消息 | Inline learning card＋Disclosure → `MessageCard` 蓝色 `Surface` | 优化／话题语料／分层提示／纠错，持久折叠与长按复制／重生成；初始关键词，逐层揭示骨架与参考句。旧上下文禁止继续揭示；优化可进入独立重说。无重复手势说明，不进主上下文，不自动朗读纠错。 |
+| CHAT-07 | 学习辅助消息 | Inline learning card＋Disclosure → `MessageCard` 蓝色 `Surface` | 优化／话题语料／纠错可持久折叠及长按操作；历史 SCAFFOLD 直接显示已保存的全部层，只读且不能重生成。优化可进入独立重说；学习内容不进入主上下文，不自动朗读纠错。 |
 | CHAT-08 | AI 等待／流式回复 | Inline loading／Streaming content → `CircularProgressIndicator`、文本、取消按钮 | busy／streamingText；检查是否重复显示等待信息、取消后状态与流式滚动。 |
 | CHAT-09 | 未收到回复 | Inline recoverable error → 提示＋“重试” `TextButton` | `needsReply` 且未锁定时显示；关键恢复动作不能因简化文案丢失。 |
-| CHAT-10 | 学习操作栏 | Action toolbar＋`DropdownMenu` → 表达提示／话题语料／复盘／更多 | 更多含回退上一轮、空白收藏、练习录音；历史录音不自动发送。复盘打开阅读面，生成由另一个明确动作触发。 |
+| CHAT-10 | 学习操作栏 | Action toolbar＋`DropdownMenu` → 话题语料／复盘／更多 | 话题语料打开全高设置面，固定最新完整用户＋AI 一轮，用途回答／追问／泛话题相关、数量 4–10（默认 5）、难度默认／高级／地道。未完成一轮时显示恢复提示并禁用生成。更多含回退、收藏、练习录音；表达提示入口已移除。 |
 | CHAT-11 | 输入区 | Compact composer → 输入方式切换、输入主体、中文求助 | 语音单行、文字时中文求助另行；有播放时可停止；手势提示仅语音时显示。会话文字草稿独立保存，设备输入法和录音待验。 |
 | CHAT-12 | 长按消息 | Contextual action menu → 内容为动作列表的 `AlertDialog` | 识别／复制／优化用户消息或重新生成其他消息；无文字时禁用。比较菜单／动作面板前先确认目标标识、长按替代入口。 |
 | CHAT-13 | 补充／修改转写 | Short editor dialog → `AlertDialog`＋多行 `OutlinedTextField` | 本地草稿、非空且未锁定可保存、取消关闭。检查键盘、取消后的草稿、长内容。 |
@@ -54,8 +55,9 @@
 | SCENE-01 | 对话中的目标面板 | Inline progress panel＋Disclosure → 蓝色 `Surface`、目标行、展开按钮 | 展开／折叠、目标达成、判定理由／消息证据；这是任务信息，不按“说明文字”一概去除。 |
 | SCENE-02 | 场景阶段／判定失败 | Inline outcome／Recovery → 阶段文本、继续对话／场景复盘、错误＋重试 | ACTIVE／ENDED／CONTINUED、检查失败；目标达成才奖励和计数，到限未达成只结束。结束后固定复盘可稍后生成，续聊不改原结算。 |
 | SCENE-03 | 更正目标进度 | Correction form dialog → `AlertDialog`＋依据字段＋两种标记动作 | 依据非空才可提交；检查动作层级、返回和错误恢复，不能误当两按钮“确认／取消”。 |
-| SCENE-04 | 选择场景 | Picker dialog → `AlertDialog`、滚动列表、`OutlinedButton` | 预设＋自建模板、直接开始、自建入口；按场景 ID 显示已完成次数。检查列表增长、设备滚动和大字体。 |
-| SCENE-05 | 自建场景 | Multi-field editor dialog → `AlertDialog`＋滚动表单 | 名称、AI 角色、我的角色、目标、开场、结束条件及附加轮数上限；移除“六项配置”重复说明。检查校验、输入法与草稿。 |
+| SCENE-04 | 选择场景与任务简报 | 全页 `LearningSurface`＋滚动场景行 → `ScenarioBrief` | 选择页使用大标题、浅绿场景行、角色信息和方向图标，底部自建入口；简报保留深色角色块与目标，主按钮开始对话，次按钮查看完整示范。沿用六个场景，不提前发起正式对话。 |
+| SCENE-05 | 自建场景 | 全页 `LearningSurface`＋分组滚动表单 | 情境与角色／任务目标／对话安排分组，顶部保存；字段校验、IME Insets、未保存返回确认。已有模板保留编辑入口；编辑器草稿尚未承诺进程恢复。 |
+| SCENE-07 | 完整示范对话 | 全页阅读面＋整段／逐句播放、角色名、可选择文本 | 按用户新要求撤去跟读、录音、转写、反馈与步骤导航；五场景展示素材全部原句，酒店共 29 条，第六场景为应用自编。长内容分段播放避免 TTS 截断；停止、退出、切换会话或开始对话时取消播放。旧学习数据保留兼容，返回不启动正式对话。原生音频及真机返回待验。 |
 
 ## Android：复习库、积累与练习记录
 
@@ -72,8 +74,8 @@
 | LIB-07 | 练习目标选择 | Multi-select picker → `PracticeDialogs` 中 `AlertDialog`＋`Checkbox`＋列表 | 空库、选 1–5 项、计数、上限、取消／去添加。到上限后不再新增勾选；是否需要解释必须结合设备验证。 |
 | LIB-08 | AI 提取候选 | Review／Multi-select dialog → `AlertDialog`＋复选列表 | 空／非空、编辑单项、选中计数、收藏；内部再开 `ReviewEditor`。检查叠层焦点、选择保留和重复说明。 |
 | LIB-09 | 历史练习 | 左侧抽屉的分组 LazyColumn | 真实记录与非空草稿／未完成场景可恢复；当前项选中；新建不丢原草稿；在途生成时提示先完成或取消。旧 History Dialog 保留代码但聊天入口不再调用。 |
-| LIB-10 | 单词本 | 全页浏览＋双语搜索 → `DictionaryScreen`、`OutlinedTextField`、`FilterChip`、字母分组 `LazyColumn` | 本机 7,638 词（四级／六级／雅思，ECDICT 中文侧），点行不作跳转只开词条弹窗；全部／四级／六级／雅思筛选、搜英文或中文释义、无匹配时按输入给「查一下「…」」；底部导入沿用 VOCAB-02／VOCAB-03 那套全屏 Dialog。检查 5,000 行列表滑动、字母头位置与长释义截断。 |
-| LIB-11 | 词条详情 | 居中 Dialog＋芯片＋释义 → `WordDetailDialog`、`Pill` | 本地命中：音标、词性、级别、柯林斯星级、完整释义、词形变化；未收录：近似词「是不是想查 X」＋AI 兜底（两步确认，不自动请求）；例句本机不带，按按钮才生成并复用同进程缓存；加入积累库／已在积累库跳复习。检查叠层与键盘、示例模式标注。 |
+| LIB-10 | 单词本 | Anki 聚焦列表 → `DictionaryScreen`、FlowRow 筛选、字母分组 LazyColumn | 大号单词、音标、首要释义及一条例句，其余进入详情。后台加载保留；使用四级 4,027／六级 1,652／雅思 376 条并合并同词完整数据；旧 ECDICT 隐藏保留历史引用。真机性能／长词换行／读屏待验。 |
+| LIB-11 | 词条详情 | 全高 `LearningSurface`＋重点释义、例句和 Disclosure → `WordDetailDialog` | 首义／一条例句突出，全部义项、词形、其他例句与完整词典摘录按需展开，来源常规显示；收藏保留完整释义及原例句，无例句才生成。取代小居中窗口，原生小屏与大字体待验。 |
 
 
 ## Android：设置与对话参数
@@ -87,21 +89,23 @@
 | SET-03 | 难度／回复长度 | Single-choice picker → 点击行＋`SettingsChoiceDialog` 的 `AlertDialog`／`RadioButton` | 选中即回调并关闭，另有取消按钮；三个难度与长度选项按数据生成，检查说明长度与重复选择步骤。 |
 | SET-04 | 高级参数 | Disclosure＋Slider → `ConversationControls`、展开行、`Slider` | 温度、回复长度、重置；服务能力不足禁用，保存中受控。保留温度的必要解释，不强制所有字段配描述。 |
 | SET-05 | 显示、自动播放、示例体验 | Preference switch → `SettingSwitch`＋`Switch` | checked／enabled；显示开关映射 `!voiceReplies`。检查标签与开关方向、重复解释和任务中禁用。 |
-| SET-06 | 连接状态与操作 | Service status＋Actions → 状态文本、检查／重新连接按钮 | 连接立即生效，与其他设置的保存机制不同；关键差异需要可发现。 |
-| SET-07 | 配对入口 | Connection form dialog → `AlertDialog`＋密码显示字段＋粘贴按钮 | 完整链接、非空可连接、取消清空；检查键盘、错误恢复及敏感内容呈现。 |
+| SET-06 | 连接状态与操作 | 普通开发包保留服务状态和检查／重新连接；固定云构建不渲染此模块 | `BuildConfig.FIXED_SERVICE` 由 `build.ps1 -Cloud` 注入；网络失败保留相关区域错误。旧隧道设置不能覆盖固定云地址。 |
+| SET-07 | 配对入口 | 开发包保留密码字段 Dialog；云构建无入口且忽略配对深链 | 固定 HTTPS 地址及应用服务令牌来自本地忽略配置；百炼 API Key 不进入 App。 |
 | SET-08 | 设置保存 | 自动保存状态 → `SettingsNavigation`、ViewModel 保存路径、编辑恢复记录 | 返回先保存后离开，后台尝试保存；保存中禁用，失败留页重试，未报成功前保持失败状态；恢复不复制配对凭据。设备存储异常仍待验。 |
 | SET-09 | 设置离开 | `BackHandler`＋统一 page 请求 | 常规离开确认和手动保存／撤销已移除；键盘先收起，系统／顶部返回使用保存路径；失败可重试。 |
+| SET-11 | 多段语音设置与队列 | 全局 Switch＋聊天页 `VoiceQueuePanel` | 默认关闭；逐段本机保存，最多 6 段／180 秒，试听／重录／删除、段数和总时长。显式提交才 ASR，再整合一条用户消息并请求一次回复；失败整队保留。关闭／离页／切会话保留队列，回退上一轮前要求处理。原生权限／强杀／音频待验。 |
 
 ## Android：词库增强（dev04）
 
 | ID | 位置 | 实际组件与行为 | 状态与验证边界 |
 |---|---|---|---|
 | VOCAB-01 | 设置词库行 | Scoped preference row → 当前／默认范围独立选择一套或关闭 | 不改难度；返回自动保存沿用 dev03。 |
-| VOCAB-02 | 选择／详情 | 全高任务面 → VocabularyScreen 全屏 Dialog、RadioButton、LazyColumn、搜索 | 最新版本列表；手动选用，不自动切换。 |
+| VOCAB-02 | 选择／详情 | 全高任务面 → VocabularyScreen、RadioButton、搜索与 LazyColumn | 后台加载完成前显示进度并禁用选择／导入；默认展示 Anki 和用户导入的最新版本，旧 ECDICT 从可选列表移除；历史引用继续可用，词表详情可开例句／摘录。切换词库仍由用户明确选择。 |
 | VOCAB-03 | 文件／粘贴 | OpenDocument、OutlinedTextField、FilterChip | TXT／CSV／UTF-8／2 MiB／20,000 条；名称及来源必填；取消未保存导入确认，大文本不进 Bundle，强杀不保证恢复。 |
 | VOCAB-04 | 解析预览 | 计数、逐行错误、条目 LazyColumn、确认按钮 | 结构错误禁止保存；其他行错明确“仅保存有效项”，失败保留重试，完整原文及来源保留。 |
-| VOCAB-05 | 来源／版本 | AlertDialog＋只读 LazyColumn | 数量、来源、许可、版本与哈希；明确非官方完整；许可原文可查。导入原文只展示前段，完整本地保存。 |
+| VOCAB-05 | 来源／版本 | 只读 AlertDialog | Anki 包名、原笔记数、数量、版本、哈希及真实来源说明；第三方词典内容不标为 ECDICT MIT。原始 APKG 保留在电脑，App 使用已清理的纯文本资产。 |
 | VOCAB-06 | AI 补充 | 明确请求及结果确认的两步 AlertDialog | 告知单条上传及请求消耗；可取消、失败重试；确认另存 AI 字段和新版本，不覆盖原文。 |
+| VOCAB-07 | 语义增强选项 | 会话／默认范围的 Switch＋换行选择 Chip → `EnhancementControls` | 开关、当前回合／最近对话、克制／均衡／积极、4／8／12 候选；显示可用或本地回退及只读版本。手机无嵌入模型／向量索引；本地导入词库不上传全文，未知词库安全本地筛选。 |
 
 以上已构建并通过 JVM 验证，原生文件选择／返回／键盘／旋转／大字体／TalkBack 仍待设备验收。HTML 流程仅为方案证据，见 [词库实施](VOCABULARY-BATCH-2026-10-31.md)。
 
@@ -128,7 +132,7 @@
 
 | ID | 模块 | 类型与当前实现 | 检查点 |
 |---|---|---|---|
-| WEB-01 | 顶栏／服务入口 | Header、`role=status`、下载 App／连接 App／复制入口按钮；隐藏的连接区＋密码输入 | 状态更新、连接错误和密钥不外露；入口文案与当前原生导航对应。 |
+| WEB-01 | 顶栏／服务入口 | Header、status、下载／连接 App／复制入口；连接区＋密码输入 | 入口及错误使用通用服务文案，移除“电脑需开机”说明；390／1280px 模拟鉴权／聊天和 fragment 清理通过。浏览器仍需完整入口，APK 下载另行提供。原有移动顶栏 3 处 10px 警告未改。 |
 | WEB-02 | 模式／库入口 | 普通 `button`＋selected class，自由聊／练收藏／库／新对话 | 选择状态与键盘语义需浏览器核验；不能视为原生场景模式的完整对应实现。 |
 | WEB-03 | 全局反馈／忙碌 | `#feedback[role=alert]`、`feedback()`；`setBusy()` 禁用操作 | 普通完成反馈与错误共用 alert 区；检查播报强度和重试可达性。 |
 | WEB-04 | 欢迎／消息／学习提示 | 空态、动态 `article.message`／`.bubble`、蓝色 hint；消息容器 `aria-live=polite` | 实际生成内容来自 `render()`；检查提示重复说明与动态播报。 |
@@ -138,6 +142,7 @@
 | WEB-08 | 库与条目 | `#library-panel`、`renderLibrary()` 动态 item＋练这一项／删除 | 空／非空；删除直接执行，原生为确认 Dialog，属于已观察的平台差异，非已批准统一方案。 |
 | WEB-09 | 手动积累 | `<dialog id=manual-entry>`＋表单、`select`、input、textarea | required 内容、保存／取消；`openManualEntry()` 设初始焦点。 |
 | WEB-10 | AI 候选 | `<dialog id=candidates>`＋`renderCandidates()` 复选／输入编辑 | 空／非空、已选保存；与原生内层编辑 Dialog 不同，需分别维护。 |
+| WEB-11 | 话题语料设置 | 原生 `<dialog id=topic-options>`＋用途／难度 select、数量 range | 固定最新完整用户＋AI 一轮，4–10 条双语 JSON 校验，失败保留旧结果；取消不生成，学习语料不进聊天上下文。独立 HTML 新流程预览见下方交付记录。 |
 
 ## 原型与介绍产物
 
@@ -146,6 +151,13 @@
 | [design/preview.html](../design/preview.html) | 三个手机画面：聊天气泡／音频展开／录音；库卡片／筛选外观；偏好卡片／显示切换／开关 | 自标 v0.2，部分交互示意，无 AI 或录音；搜索等外观不证明完整功能。用于风格对照。 |
 | [design/product-intro.source.html](../design/product-intro.source.html) 与 CSS | 产品介绍排版 | 宣传展示产物，不纳入 App 组件实例；本次未对介绍页逐节点登记。 |
 | `deliverables/` 中 HTML／报告／APK | 交付或验证产物 | 不作为当前源码 UI 清单的权威来源。 |
+
+## 2026-10-31 当前功能展示页
+
+| ID | 模块 | 当前实现与范围 | 验证 |
+|---|---|---|---|
+| SHOWCASE-01 | 手机优先介绍页 | `server/public/product.html/css/js`；五个独立功能分块与 sticky 章节导航、阅读进度；展示 0.7.0 的话题圆柱与 AI 开场、可配置话题语料、语义增强、全页场景学习与完整示范、Anki 词库；保留六场景互斥切换、原生 details 和真实 APK 链接 | 0.7.0 发布前重新执行 320／390／768／1440 Chromium 视口、键盘与交互检查；无脚本内容可读。未验真机 Safari／微信。 |
+| SHOWCASE-02 | 动效与静态分发 | 话题连续漂移、首屏浅色渐变、模拟画面差异化滚动出现；全局暂停、后台／离屏暂停和系统减少动效；HTML 内嵌字体与脚本，静态 ZIP 可托管 | 实测移动、暂停／恢复、离屏停止、动态切换减少动效通过；未录音或调用 AI。v2 独立产物及边界见 [改版记录](PRODUCT-SHOWCASE-V2-2026-10-31.md)。 |
 
 ## 如何持续维护
 

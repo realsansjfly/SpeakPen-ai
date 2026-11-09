@@ -7,8 +7,7 @@ package com.speakpen.app.data
  * `scripts/build-dictionary.py` 从 manifest 里钉住的 ECDICT commit 生成。三个 `*.txt` 词表保持
  * 不变，仍然只提供词形与考试标签；这里补的是当年被裁掉的中文一侧。
  *
- * 这些字段只活在内存里：`VocabularyJson.entry` 一个字节都没动，否则已持久化词库的 digest
- * 会全部失配（见 `VocabularyJson.readBook` 的校验）。
+ * 此文件保留旧 ECDICT 解析与通用查词函数。新词表来自 Anki；旧字段不改变已保存词库的 digest。
  */
 object Dictionary {
     const val ASSET = "vocabulary/dictionary.tsv"
@@ -54,7 +53,7 @@ object Dictionary {
 
     /** 列表里的一行：词性 + 两三个汉语义项。 */
     fun shortGloss(entry: VocabularyEntry, senses: Int = 3): String {
-        val line = entry.meaning.split(SENSE_SEPARATOR).firstOrNull().orEmpty().trim()
+        val line = entry.meaning.replace(SENSE_SEPARATOR, "\n").lineSequence().firstOrNull().orEmpty().trim()
         if (line.isEmpty()) return entry.effectiveMeaning.take(24)
         val prefix = SENSE_PREFIX.find(line)?.value?.trim().orEmpty()
         val body = line.removePrefix(prefix).trim().ifEmpty { line }
@@ -90,8 +89,23 @@ object Dictionary {
 }
 
 /** 词条索引：内置字典 + 用户导入词库合并成一个可查表。 */
+fun mergeDictionaryEntries(entries: List<VocabularyEntry>): List<VocabularyEntry> =
+    entries.groupBy { vocabularyKey(it.expression) }.values.map { group ->
+        val first = group.first()
+        first.copy(
+            meaning = group.map { it.effectiveMeaning }.filter { it.isNotBlank() }.distinct().joinToString("\n"),
+            example = group.firstOrNull { it.example.isNotBlank() }?.example.orEmpty(),
+            phonetic = group.firstOrNull { it.phonetic.isNotBlank() }?.phonetic.orEmpty(),
+            collins = group.maxOf { it.collins },
+            levels = group.flatMap { it.levels.split(' ') }.filter { it.isNotBlank() }.distinct().joinToString(" "),
+            source = group.map { it.source }.filter { it.isNotBlank() }.distinct().joinToString("\n"),
+            details = group.flatMap { it.details }.groupBy { it.title }.map { (title, values) ->
+                VocabularyDetail(title, values.map { it.text }.distinct().joinToString("\n\n")) },
+        )
+    }
+
 class DictionaryIndex(entries: List<VocabularyEntry>) {
-    private val byKey: Map<String, VocabularyEntry> = entries.associateBy { vocabularyKey(it.expression) }
+    private val byKey: Map<String, VocabularyEntry> = mergeDictionaryEntries(entries).associateBy { vocabularyKey(it.expression) }
     val size: Int get() = byKey.size
 
     fun find(raw: String): VocabularyEntry? {

@@ -98,10 +98,10 @@ class VocabularyTest {
         assertEquals(data, DataJson.read(DataJson.write(data)))
         assertEquals(config, data.sessions.single().messages.last().generationConfig)
     }
-    @Test fun missingOrChangedVersionFailsClearlyRatherThanSilentlyUsingAnother() {
+    @Test fun missingOrChangedVersionCannotBlockChatOrSilentlyUseAnotherBook() {
         val b = book(); val s = ChatSession(config = ConversationConfig(vocabulary = b.selection()))
         for (books in listOf(emptyList(), listOf(b.copy(version = "2")), listOf(b.copy(entries = emptyList())))) {
-            try { VocabularyCandidates.prepare(s, books, "hotel"); fail() } catch (_: IllegalStateException) { }
+            assertNull(VocabularyCandidates.prepare(s, books, "hotel").vocabulary)
         }
     }
     @Test fun unrelatedContextDoesNotForceCandidateAndChineseTopicsWork() {
@@ -126,7 +126,7 @@ class VocabularyTest {
         val u = ChatMessage(role = "user", text = "I want book a room.")
         val s = ChatSession(config = config, messages = listOf(u, ChatMessage(role = "hint", text = "PRIVATE")))
         assertTrue(LearningPrompts.optimize(s, u).toString().contains("reservation"))
-        assertTrue(LearningPrompts.topic(s.messages, config).toString().contains("reservation"))
+        assertTrue(LearningPrompts.topic(s.messages + ChatMessage(role = "assistant", text = "How many nights?"), config).toString().contains("reservation"))
         assertFalse(CoachPrompts.history(s).toString().contains("PRIVATE"))
         assertEquals("", VocabularyPrompts.instruction(ConversationConfig()))
     }
@@ -172,7 +172,7 @@ class VocabularyTest {
                 .body("""{"choices":[{"message":{"content":"词库提示"},"finish_reason":"stop"}]}""".toResponseBody("application/json".toMediaType())).build()
         }.build())
         assertEquals("词库提示", client.learning(ApiConfig("https://example.test/v1", "service-token", "managed"),
-            LearningPrompts.topic(listOf(ChatMessage(role = "user", text = "hotel")), config)))
+            LearningPrompts.topic(listOf(ChatMessage(role = "user", text = "hotel"), ChatMessage(role = "assistant", text = "How many nights?")), config)))
     }
     @Test fun builtInResourceCountsHashesAndTopicSelectionAreReproducible() {
         val dir = File("src/main/assets/vocabulary").takeIf { it.exists() } ?: File("app/src/main/assets/vocabulary")

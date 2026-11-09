@@ -21,12 +21,15 @@ data class ConversationConfig(
     val advanced: AdvancedSettings = AdvancedSettings(),
     val vocabulary: VocabularySelection? = null,
     val realtimeCorrection: Boolean = false,
+    val enhancement: VocabularyEnhancement = VocabularyEnhancement(),
 )
 
 object ConversationConfigJson {
     fun write(config: ConversationConfig): JSONObject = JSONObject().apply {
         put("version", 3); put("difficulty", config.difficulty.name)
         put("realtimeCorrection", config.realtimeCorrection)
+        put("enhancement", JSONObject().put("enabled", config.enhancement.enabled).put("scope", config.enhancement.scope.name)
+            .put("strength", config.enhancement.strength.name).put("count", config.enhancement.count))
         config.vocabulary?.let { put("vocabulary", VocabularyJson.selection(it)) }
         put("temperature", config.advanced.temperature); put("replyLength", config.advanced.replyLength.name)
     }
@@ -39,6 +42,10 @@ object ConversationConfigJson {
             advanced = AdvancedSettings(temperature, ReplyLength.entries.firstOrNull { it.name == json.optString("replyLength") } ?: ReplyLength.STANDARD),
             vocabulary = json.optJSONObject("vocabulary")?.let(VocabularyJson::readSelection),
             realtimeCorrection = json.optBoolean("realtimeCorrection", false),
+            enhancement = json.optJSONObject("enhancement")?.let { j -> VocabularyEnhancement(j.optBoolean("enabled", true),
+                RetrievalScope.entries.firstOrNull { it.name == j.optString("scope") } ?: RetrievalScope.RECENT,
+                RetrievalStrength.entries.firstOrNull { it.name == j.optString("strength") } ?: RetrievalStrength.BALANCED,
+                j.optInt("count", 8).takeIf { it in listOf(4, 8, 12) } ?: 8) } ?: VocabularyEnhancement(),
         )
     }
 }

@@ -18,6 +18,7 @@ data class AppSettings(
     val voiceReplies: Boolean = true,
     val serviceUrl: String = "", val serviceAccessToken: String = "",
     val conversationDefaults: ConversationConfig = ConversationConfig(),
+    val multiSegmentVoice: Boolean = false,
 )
 data class ChatMessage(
     val id: String = newId(), val role: String, val text: String,
@@ -32,6 +33,7 @@ data class ChatMessage(
     val scenarioOpening: Boolean = false, val replyToMessageId: String = "",
     val hintLayers: List<String> = emptyList(), val revealedLayers: Int = 1,
     val hintContextDigest: String = "", val practiceReference: String = "",
+    val topicOptions: TopicOptions? = null, val audioSegments: List<VoiceSegment> = emptyList(),
 ) {
     val isHint: Boolean get() = role == "hint"
     val isConversation: Boolean get() = role == "user" || role == "assistant"
@@ -44,6 +46,9 @@ data class ChatSession(
     val scenario: ScenarioPractice? = null, val draft: String = "",
     val speakingPractices: List<SpeakingPractice> = emptyList(),
     val latestRecap: RecapDocument? = null, val fixedRecap: RecapDocument? = null,
+    val openingTopic: String = "",
+    val voiceQueue: List<VoiceSegment> = emptyList(),
+    val lesson: LessonProgress? = null,
 )
 data class ReviewItem(
     val id: String = newId(), val kind: ReviewKind = ReviewKind.PHRASE,
@@ -106,6 +111,9 @@ object DataJson {
     private fun sessionToJson(session: ChatSession): JSONObject = JSONObject().apply {
         put("id", session.id); put("title", session.title); put("mode", session.mode.name)
         put("draft", session.draft); put("config", ConversationConfigJson.write(session.config)); put("configRevision", session.configRevision)
+        put("voiceQueue", VoiceQueue.json(session.voiceQueue))
+        session.lesson?.let { put("lesson", LessonJson.write(it)) }
+        if (session.openingTopic.isNotBlank()) put("openingTopic", session.openingTopic)
         session.scenario?.let { put("scenario", ScenarioJson.practice(it)) }
         put("speakingPractices", JSONArray().apply { session.speakingPractices.forEach { put(LearningFeatureJson.practice(it)) } })
         session.latestRecap?.let { put("latestRecap", RecapJson.write(it)) }
@@ -124,6 +132,8 @@ object DataJson {
             put("hintCollapsed", message.hintCollapsed)
             put("hintLayers", JSONArray(message.hintLayers)); put("revealedLayers", message.revealedLayers)
             put("hintContextDigest", message.hintContextDigest); put("practiceReference", message.practiceReference)
+            put("audioSegments", VoiceQueue.json(message.audioSegments))
+            message.topicOptions?.let { put("topicOptions", JSONObject().put("purpose", it.purpose.name).put("count", it.count).put("difficulty", it.difficulty.name)) }
             put("scenarioOpening", message.scenarioOpening); put("replyToMessageId", message.replyToMessageId)
             put("audioFileName", message.audioFileName); put("audioDurationMs", message.audioDurationMs); put("transcriptState", message.transcriptState.name)
     }
@@ -131,6 +141,9 @@ object DataJson {
         id = json.getString("id"), title = json.optString("title", "练习"), mode = enumOr(json.optString("mode"), ConversationMode.FREE),
         config = ConversationConfigJson.read(json.optJSONObject("config")), configRevision = json.optInt("configRevision").coerceAtLeast(0),
         scenario = json.optJSONObject("scenario")?.let(ScenarioJson::readPractice), draft = json.optString("draft"),
+        openingTopic = json.optString("openingTopic"),
+        voiceQueue = VoiceQueue.read(json.optJSONArray("voiceQueue")),
+        lesson = json.optJSONObject("lesson")?.let(LessonJson::read),
         speakingPractices = objects(json.optJSONArray("speakingPractices")).map(LearningFeatureJson::readPractice),
         latestRecap = json.optJSONObject("latestRecap")?.let(RecapJson::read),
         fixedRecap = json.optJSONObject("fixedRecap")?.let(RecapJson::read),
@@ -152,6 +165,10 @@ object DataJson {
             hintLayers = message.optJSONArray("hintLayers")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
             revealedLayers = message.optInt("revealedLayers", 1).coerceIn(1, 3),
             hintContextDigest = message.optString("hintContextDigest"), practiceReference = message.optString("practiceReference"),
+            audioSegments = VoiceQueue.read(message.optJSONArray("audioSegments")),
+            topicOptions = message.optJSONObject("topicOptions")?.let { j -> TopicOptions(
+                TopicPurpose.entries.firstOrNull { it.name == j.optString("purpose") } ?: TopicPurpose.ANSWER,
+                j.optInt("count", 5).coerceIn(4, 10), TopicDifficulty.entries.firstOrNull { it.name == j.optString("difficulty") } ?: TopicDifficulty.DEFAULT) },
             scenarioOpening = message.optBoolean("scenarioOpening"), replyToMessageId = message.optString("replyToMessageId"),
             hintContextIds = message.optJSONArray("hintContextIds")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
         )

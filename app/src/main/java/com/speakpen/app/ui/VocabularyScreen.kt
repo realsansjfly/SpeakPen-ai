@@ -64,12 +64,13 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
         if (mode == "preview" && preview == null) { mode = "import"; localError = "导入尚未保存，请重新选择文件或粘贴原文。" }
     }
     val context = LocalContext.current
-    val locked = state.vocabularySaving || parsing
+    val leavingLocked = state.vocabularySaving || parsing
+    val locked = leavingLocked || state.vocabularyLoading
     val book = state.vocabularyBooks.firstOrNull { it.id == bookId && it.version == bookVersion }
-    val latest = state.vocabularyBooks.groupBy { it.id }.map { (_, books) -> books.maxBy { it.createdAt } }
+    val latest = state.vocabularyBooks.filterNot { it.archived }.groupBy { it.id }.map { (_, books) -> books.maxBy { it.createdAt } }
     fun inspect(value: VocabularyBook) { bookId = value.id; bookVersion = value.version; query = ""; mode = "detail" }
     fun back() {
-        if (locked) return
+        if (leavingLocked) return
         if (state.busy != null) { localError = "请先取消或完成当前请求。"; return }
         vm.dismissVocabularySuggestion(); localError = null
         when (mode) {
@@ -103,7 +104,7 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
     Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Column(Modifier.fillMaxSize().background(Color.White).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = ::back, enabled = !locked) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
+                IconButton(onClick = ::back, enabled = !leavingLocked) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
                 Text(when (mode) { "import" -> "导入词库"; "preview" -> "导入预览"; "detail" -> book?.name ?: "词库"; else -> "词库增强" },
                     Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 if (locked) CircularProgressIndicator(Modifier.padding(16.dp).size(22.dp), strokeWidth = 2.dp)
@@ -116,9 +117,10 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
             }
             when (mode) {
                 "list" -> LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state.vocabularyLoading) item { Text("词库正在加载…", color = Muted) }
                     item {
                         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = !locked) { onChoose(null); onDismiss() }, verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = selection == null, onClick = { onChoose(null); onDismiss() }); Text("关闭")
+                            RadioButton(selected = selection == null, onClick = { onChoose(null); onDismiss() }, enabled = !locked); Text("关闭")
                         }
                     }
                     items(latest, key = { it.id }) { value ->
@@ -186,6 +188,7 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
                         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 12.dp)) {
                             items(found, key = { it.id }) { entry ->
                                 VocabularyRow(entry)
+                                if (entry.details.isNotEmpty()) TextButton(onClick = { vm.lookupWord(entry.expression) }) { Text("查看例句与摘录") }
                                 if (entry.meaning.isBlank() && entry.aiMeaning.isBlank()) TextButton(onClick = { definitionEntry = entry; vm.clearFeedback() },
                                     enabled = !locked && state.busy == null) { Text("补充释义") }
                             }
@@ -202,7 +205,7 @@ fun VocabularyScreen(state: PracticeState, vm: PracticeViewModel, selection: Voc
         dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑") } })
     if (metadata && book != null) AlertDialog(onDismissRequest = { metadata = false }, title = { Text("来源与版本") }, text = {
         LazyColumn { item { Text("${book.name}\n${book.source}\n\n${book.license}\n版本：${book.version}\nSHA-256：${book.digest}\n${book.fileName}", style = MaterialTheme.typography.bodySmall) }
-            if (book.builtIn) item { Text("社区考试标签，非官方完整大纲；不含第三方词典释义。缺释义可按需请求 AI 补充。\n\n${book.attribution}", style = MaterialTheme.typography.bodySmall) }
+            if (book.builtIn) item { Text(book.attribution, style = MaterialTheme.typography.bodySmall) }
             if (book.originalText.isNotBlank()) item { Text("原始内容\n${book.originalText.take(12000)}", style = MaterialTheme.typography.bodySmall) }
             if (book.originalText.length > 12000) item { Text("此处显示前 12,000 字符，完整原文已保存在本机。") }
         }

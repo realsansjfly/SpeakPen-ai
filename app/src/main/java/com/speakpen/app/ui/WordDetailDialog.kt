@@ -7,8 +7,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,16 +41,15 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
     }
     val looking = suggestion == null && state.busy != null
     val saved = vm.libraryItem(query)
-    Dialog(onDismissRequest = vm::closeWord) {
-        Surface(shape = RoundedCornerShape(24.dp), color = Color.White, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 18.dp),
+    LearningSurface("词条详情", onClose = vm::closeWord) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
                         Text(entry?.expression ?: query, style = MaterialTheme.typography.headlineMedium)
                         val phonetic = entry?.phonetic.orEmpty()
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (phonetic.isNotBlank()) Text("/$phonetic/", color = Muted, style = MaterialTheme.typography.bodyMedium)
+                            if (phonetic.isNotBlank()) Text(phonetic, Modifier.weight(1f, fill = false), color = Muted, style = MaterialTheme.typography.bodyMedium)
                             val stars = entry?.let(Dictionary::collinsStars).orEmpty()
                             if (stars.isNotBlank()) Text(stars, color = Amber, style = MaterialTheme.typography.labelLarge)
                         }
@@ -62,20 +62,26 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
                         Dictionary.levelsLabel(entry).takeIf { it.isNotBlank() }?.let { add(it) }
                         if (entry.collins > 0) add("柯林斯 ${entry.collins} 星")
                     }
-                    if (chips.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { chips.forEach { Pill(it) } }
-                    Text(Dictionary.fullGloss(entry), style = MaterialTheme.typography.bodyLarge)
+                    if (chips.isNotEmpty()) Text(chips.joinToString(" · "), color = Muted, style = MaterialTheme.typography.labelLarge)
+                    if (entry.effectiveMeaning.isNotBlank()) {
+                        var meanings by remember(entry.id) { mutableStateOf(false) }
+                        SelectionContainer { Text(if (meanings) Dictionary.fullGloss(entry) else entry.effectiveMeaning.lineSequence().first().split('；', ';').take(2).joinToString("；"), style = MaterialTheme.typography.titleLarge) }
+                        TextButton(onClick = { meanings = !meanings }) { Text(if (meanings) "收起义项" else "全部义项") }
+                    }
+                    else Text("原卡片未填写中文释义。", color = Muted, style = MaterialTheme.typography.bodyMedium)
                     val exchange = Dictionary.exchangeLines(entry)
                     if (exchange.isNotEmpty()) {
-                        Eyebrow("词形变化")
-                        Text(exchange.joinToString(" · "), color = Muted, style = MaterialTheme.typography.bodyMedium)
+                        var forms by remember(entry.id) { mutableStateOf(false) }
+                        TextButton(onClick = { forms = !forms }) { Text(if (forms) "收起词形变化" else "词形变化") }
+                        if (forms) Text(exchange.joinToString(" · "), color = Muted, style = MaterialTheme.typography.bodyMedium)
                     }
                 } else {
                     val single = query.trim().length <= 1
                     Text(
                         when {
-                            single -> "「${query.trim()}」是单字母：内置词表只收考试词表里的词，冠词和单字母（a/an/the/I）不在其中。需要的话可以让 AI 解释一次。"
+                            single -> "原词表没有收录「${query.trim()}」，可以按需查询 AI 释义。"
                             looking -> "本地没有收录「$query」，正在问 AI 服务…"
-                            else -> "本地词库（四级/六级/雅思 ${'·'} 共 7638 词）没有收录「$query」。"
+                            else -> "本地 Anki 词表没有收录「$query」。"
                         },
                         color = Muted, style = MaterialTheme.typography.bodyMedium
                     )
@@ -103,9 +109,30 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
                     }
                 }
                 state.error?.let { InlineNotice(it, isError = true, onClose = vm::clearFeedback) }
-                Eyebrow("例句")
+                entry?.example?.lineSequence()?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyLarge) }
+                entry?.details?.forEach { detail ->
+                    var expanded by remember(entry.id, detail.title) { mutableStateOf(false) }
+                        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(detail.title, Modifier.weight(1f)); Text(if (expanded) "收起" else "展开")
+                            }
+                        }
+                    if (expanded) SelectionContainer {
+                        Text(detail.text, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                val localExamples = entry?.details?.any { it.title == "例句" } == true
+                if (!localExamples && entry?.example.isNullOrBlank()) Text("例句", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
                 val example = state.wordExample?.takeIf { state.wordExampleQuery == query }
                 when {
+                    localExamples -> Unit
+                    entry?.example?.isNotBlank() == true -> {
+                        var expanded by remember(entry.id) { mutableStateOf(false) }
+                        if (entry.example.lineSequence().count() > 1) {
+                            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起其他例句" else "其他例句") }
+                            if (expanded) Text(entry.example.lineSequence().drop(1).joinToString("\n"), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                     example != null -> Text(example, style = MaterialTheme.typography.bodyMedium)
                     entry == null && suggestion?.example?.isNotBlank() == true -> Text(suggestion.example, style = MaterialTheme.typography.bodyMedium)
                     state.wordBusy -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -113,10 +140,10 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
                         Spacer(Modifier.width(10.dp))
                         Text("正在生成…", color = Muted, style = MaterialTheme.typography.bodySmall)
                     }
-                    else -> Text("本机不带例句，需要时再让 AI 生成一条。", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    else -> Text("原卡片没有例句，可按需生成。", color = Muted, style = MaterialTheme.typography.bodySmall)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (example == null && entry != null) TextButton(onClick = vm::requestWordExample, enabled = !state.wordBusy) { Text("生成例句") }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!localExamples && entry?.example.isNullOrBlank() && example == null && entry != null) TextButton(onClick = vm::requestWordExample, enabled = !state.wordBusy) { Text("生成例句") }
                     if (entry == null && suggestion == null) TextButton(
                         onClick = { vm.requestMeaning(fallback) },
                         enabled = !looking && !state.wordBusy
@@ -127,7 +154,6 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
                             Text("正在查…")
                         } else Text("让 AI 查意思")
                     }
-                    Spacer(Modifier.weight(1f))
                     if (entry != null) {
                         if (saved != null) OutlinedButton(onClick = { vm.closeWord(); vm.page(1) }) { Text("已在积累库 · 去复习") }
                         else Button(onClick = { vm.addWordToLibrary(entry) }) { Text("加入积累库") }
@@ -138,8 +164,10 @@ fun WordDetailDialog(state: PracticeState, vm: PracticeViewModel) {
                         TextButton(onClick = vm::dismissMeaning) { Text("丢弃") }
                     }
                 }
+                entry?.source?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
             }
-        }
     }
 }
 

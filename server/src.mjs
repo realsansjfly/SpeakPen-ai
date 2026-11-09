@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { retrieve, retrievalInput } from './semantic.mjs';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual, createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -9,7 +10,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 export function providers(env = process.env) {
   const choices = {
     dashscope: env.DASHSCOPE_API_KEY ? {
-      name: 'dashscope', base: env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1', key: env.DASHSCOPE_API_KEY,
+      name: 'dashscope', base: (env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, ''), key: env.DASHSCOPE_API_KEY,
       chat: env.DASHSCOPE_CHAT_MODEL || 'qwen3.7-flash-2026-07-15', asr: env.DASHSCOPE_ASR_MODEL || 'qwen3-asr-flash',
     } : null,
     groq: env.GROQ_API_KEY ? {
@@ -22,6 +23,38 @@ export function providers(env = process.env) {
     } : null,
   };
   return (env.PROVIDER_PRIORITY || 'dashscope,groq,siliconflow').split(',').map(x => choices[x.trim()]).filter(Boolean);
+}
+export function speechProvider(env = process.env, upstreams = providers(env)) {
+  const separateKey = env.DASHSCOPE_TTS_API_KEY?.trim();
+  const officialChat = upstreams.find(item => item.name === 'dashscope' &&
+    item.base === 'https://dashscope.aliyuncs.com/compatible-mode/v1');
+  const key = separateKey || officialChat?.key;
+  if (!key) return null;
+  return {
+    key,
+    model: env.DASHSCOPE_TTS_MODEL || 'qwen3-tts-flash',
+    voice: env.DASHSCOPE_TTS_VOICE || 'Cherry',
+    endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+  };
+}
+export function normalizeWav(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 20 ||
+      bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WAVE') return bytes;
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const name = bytes.subarray(offset, offset + 4).toString('ascii');
+    const size = bytes.readUInt32LE(offset + 4);
+    if (name === 'data') {
+      const normalized = Buffer.from(bytes);
+      normalized.writeUInt32LE(normalized.length - 8, 4);
+      normalized.writeUInt32LE(normalized.length - offset - 8, offset + 4);
+      return normalized;
+    }
+    const next = offset + 8 + size + (size & 1);
+    if (next <= offset || next > bytes.length) return bytes;
+    offset = next;
+  }
+  return bytes;
 }
 const json = (res, code, value) => {
   if (res.headersSent || res.destroyed) return;
@@ -52,7 +85,7 @@ export function chatPayload(input, provider, stream = input.stream === true) {
     return { role: message.role, content: message.content };
   });
   if (total > 70000) throw new Error('Context too large');
-  const auxiliary = ['summary', 'learning'].includes(input.purpose);
+  const auxiliary = ['summary', 'learning', 'topic_bank'].includes(input.purpose);
   let chatLimit = 240;
   if (!auxiliary && input.reply_length !== undefined) {
     const limits = { short: 120, standard: 240, extended: 400 };
@@ -63,13 +96,13 @@ export function chatPayload(input, provider, stream = input.stream === true) {
       (typeof input.temperature !== 'number' || !Number.isFinite(input.temperature) || input.temperature < 0 || input.temperature > 1)) {
     throw new Error('Invalid temperature');
   }
-  const payload = { model: provider.chat, messages, stream, max_tokens: input.purpose === 'summary' ? 1600 : input.purpose === 'learning' ? 700 : chatLimit };
+  const payload = { model: provider.chat, messages, stream, max_tokens: input.purpose === 'topic_bank' ? 2600 : input.purpose === 'summary' ? 1600 : input.purpose === 'learning' ? 700 : chatLimit };
   if (!auxiliary && input.temperature !== undefined) payload.temperature = input.temperature;
   if (['siliconflow', 'dashscope'].includes(provider.name)) payload.enable_thinking = false;
   if (input.purpose === 'summary' && provider.name === 'dashscope') payload.response_format = { type: 'json_object' };
   if (provider.name === 'groq' && provider.chat.startsWith('openai/gpt-oss')) {
     payload.reasoning_effort = 'low'; payload.include_reasoning = false;
-    delete payload.max_tokens; payload.max_completion_tokens = input.purpose === 'summary' ? 2200 : input.purpose === 'learning' ? 1200 : input.reply_length === undefined ? 700 : chatLimit;
+    delete payload.max_tokens; payload.max_completion_tokens = input.purpose === 'topic_bank' ? 3200 : input.purpose === 'summary' ? 2200 : input.purpose === 'learning' ? 1200 : input.reply_length === undefined ? 700 : chatLimit;
   }
   return payload;
 }
@@ -92,8 +125,12 @@ export async function audioRequest(input, provider) {
   return { path: '/audio/transcriptions', payload };
 }
 
-export function createService({ env = process.env, fetchImpl = fetch, now = Date.now } = {}) {
+export function createService({ env = process.env, fetchImpl = fetch, now = Date.now, semanticFetch = fetch } = {}) {
+  if (env.REQUIRE_AUTH === 'true' && !/^[a-f0-9]{64}$/.test(env.SERVICE_ACCESS_TOKEN || '')) {
+    throw new Error('Cloud service requires a 64-character SERVICE_ACCESS_TOKEN.');
+  }
   const upstreams = providers(env);
+  const speech = speechProvider(env, upstreams);
   const instanceId = randomUUID();
   const buckets = new Map(); let daily = { day: '', count: 0 };
   if (env.USAGE_FILE && existsSync(env.USAGE_FILE)) {
@@ -106,7 +143,7 @@ export function createService({ env = process.env, fetchImpl = fetch, now = Date
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer');
     const path = new URL(request.url, 'http://localhost').pathname;
     if (request.method === 'GET' && path === '/health') return json(res, 200, {
-      ready: upstreams.length > 0, version: '0.4.0', service: 'SpeakPen', speech: upstreams.length > 0,
+      ready: upstreams.length > 0, version: '0.4.0', service: 'SpeakPen', speech: Boolean(speech),
     });
     const assets = { '/': ['index.html', 'text/html; charset=utf-8'], '/app.js': ['app.js', 'text/javascript; charset=utf-8'], '/app.css': ['app.css', 'text/css; charset=utf-8'], '/learning.js': ['learning.js', 'text/javascript; charset=utf-8'] };
     if (request.method === 'GET' && assets[path]) {
@@ -118,8 +155,20 @@ export function createService({ env = process.env, fetchImpl = fetch, now = Date
       createReadStream(file).pipe(res); return;
     }
     if (!authorized(request, env.SERVICE_ACCESS_TOKEN)) return problem(res, 401, 'unauthorized', 'Service authorization required.');
+    if (request.method === 'POST' && path === '/v1/vocabulary/search') {
+      const key = `retrieval:${request.socket.remoteAddress}`, stamp = now();
+      let bucket = buckets.get(key);
+      if (!bucket || stamp - bucket.start >= 60000) { bucket = { start: stamp, count: 0 }; buckets.set(key, bucket); }
+      if (++bucket.count > 60) return problem(res, 429, 'rate_limit', 'Please retry later.');
+      let input;
+      try { input = retrievalInput(JSON.parse((await body(request, 16384)).toString('utf8'))); }
+      catch { return problem(res, 400, 'invalid_input', 'Invalid vocabulary query.'); }
+      try { return json(res, 200, await retrieve(input, env.SERVICE_ACCESS_TOKEN, semanticFetch)); }
+      catch { return json(res, 200, { fallback: true, candidates: [], status: 'temporarily_unavailable' }); }
+    }
     if (request.method === 'GET' && path === '/v1/status') return json(res, 200, {
       service: 'SpeakPen', instanceId, ready: upstreams.length > 0, chatModel: upstreams[0]?.chat, asrModel: upstreams[0]?.asr,
+      speech: Boolean(speech), speechModel: speech?.model,
       streaming: env.DISABLE_STREAMING !== 'true', version: '0.4.0', conversationControlsVersion: 1, ...metrics,
     });
     if (request.method === 'GET' && path === '/app.apk') {
@@ -150,15 +199,19 @@ export function createService({ env = process.env, fetchImpl = fetch, now = Date
       if (path === '/v1/audio/speech') {
         const input = JSON.parse((await body(request, 12 * 1024)).toString('utf8'));
         if (typeof input.input !== 'string' || !input.input.trim() || input.input.length > 2000) throw new Error('Invalid speech input');
-        const provider = upstreams.find(item => item.name === 'dashscope');
-        if (!provider) return problem(res, 503, 'tts_unavailable', 'Cloud speech is unavailable.');
-        const hash = createHash('sha256').update(input.input).digest('hex');
+        // A compatible chat gateway does not imply native TTS support. Only an explicit
+        // official TTS key (or an official DashScope chat key) may reach this endpoint.
+        if (!speech) {
+          return problem(res, 503, 'tts_unavailable', 'Native cloud speech is unavailable for this provider.');
+        }
+        const language = /[\u3400-\u9fff]/.test(input.input) ? 'Chinese' : 'English';
+        const hash = createHash('sha256').update(`${speech.model}\n${speech.voice}\n${language}\n${input.input}`).digest('hex');
         let bytes = speechCache.get(hash);
         if (!bytes) {
-          const ttsResponse = await fetchImpl('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
-            method: 'POST', headers: { authorization: `Bearer ${provider.key}`, 'content-type': 'application/json' },
-            body: JSON.stringify({ model: env.DASHSCOPE_TTS_MODEL || 'qwen3-tts-flash', input: {
-              text: input.input, voice: 'Cherry', language_type: /[\u3400-\u9fff]/.test(input.input) ? 'Chinese' : 'English',
+          const ttsResponse = await fetchImpl(speech.endpoint, {
+            method: 'POST', headers: { authorization: `Bearer ${speech.key}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ model: speech.model, input: {
+              text: input.input, voice: speech.voice, language_type: language,
             } }), signal: abort.signal, redirect: 'error',
           });
           if (!ttsResponse.ok) return problem(res, 502, 'tts_unavailable', 'Unable to generate speech.');
@@ -171,7 +224,7 @@ export function createService({ env = process.env, fetchImpl = fetch, now = Date
           if (!download.ok) throw Object.assign(new Error('Audio unavailable'), { status: 502 });
           const chunks = []; let length = 0;
           for await (const chunk of download.body) { length += chunk.length; if (length > 6 * 1024 * 1024) throw Object.assign(new Error('Audio too large'), { status: 502 }); chunks.push(chunk); }
-          bytes = Buffer.concat(chunks);
+          bytes = normalizeWav(Buffer.concat(chunks));
           if (!bytes.length) throw Object.assign(new Error('Empty audio'), { status: 502 });
           if (speechCache.size >= 24) speechCache.delete(speechCache.keys().next().value);
           speechCache.set(hash, bytes);

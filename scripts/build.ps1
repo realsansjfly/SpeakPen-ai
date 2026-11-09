@@ -2,8 +2,10 @@ param(
     [string]$JavaHome = $env:JAVA_HOME,
     [switch]$Offline,
     [string]$OutputDirectory = '',
-    [string]$ApkName = 'SpeakPen-0.6.0-dev02-debug.apk',
-    [switch]$Unpaired
+    [string]$ApkName = 'SpeakPen-0.7.0-debug.apk',
+    [switch]$Unpaired,
+    [switch]$Cloud,
+    [string]$CloudConnectionPath = ''
 )
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path -Parent $PSScriptRoot
@@ -26,11 +28,22 @@ $oldJavaHome = $env:JAVA_HOME
 $oldToolOptions = $env:JAVA_TOOL_OPTIONS
 $oldServiceUrl = $env:SPEAKPEN_BACKEND_URL
 $oldServiceToken = $env:SPEAKPEN_SERVICE_TOKEN
+$oldFixedService = $env:SPEAKPEN_FIXED_SERVICE
 try {
     $connectionPath = Join-Path $workspacePath '.local\connection.json'
-    if ($Unpaired) {
+    $env:SPEAKPEN_FIXED_SERVICE = 'false'
+    if ($Cloud -and $Unpaired) { throw '-Cloud 与 -Unpaired 不能同时使用。' }
+    if ($Cloud) {
+        $connectionPath = if ($CloudConnectionPath) { $CloudConnectionPath } else { Join-Path $workspacePath '.local\cloud-connection.json' }
+        if (-not (Test-Path -LiteralPath $connectionPath)) { throw '请先运行 scripts/configure-cloud-app.ps1 配置云端连接。' }
+        $connection = Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json
+        $env:SPEAKPEN_BACKEND_URL = $connection.baseUrl
+        $env:SPEAKPEN_SERVICE_TOKEN = $connection.accessToken
+        $env:SPEAKPEN_FIXED_SERVICE = 'true'
+    } elseif ($Unpaired) {
         $env:SPEAKPEN_BACKEND_URL = ''
         $env:SPEAKPEN_SERVICE_TOKEN = ''
+        $env:SPEAKPEN_FIXED_SERVICE = 'false'
     } elseif (Test-Path -LiteralPath $connectionPath) {
         $connection = Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json
         $env:SPEAKPEN_BACKEND_URL = $connection.baseUrl
@@ -83,12 +96,17 @@ try {
     if (Test-Path -LiteralPath $topicFixturePath) {
         Copy-Item -LiteralPath $topicFixturePath -Destination (Join-Path $deliveryDirectory 'debug-topic-live-requests.json') -Force
     }
+    $openingFixturePath = Join-Path $buildPath 'app\build\outputs\topic-opening-live-requests.json'
+    if (Test-Path -LiteralPath $openingFixturePath) {
+        Copy-Item -LiteralPath $openingFixturePath -Destination (Join-Path $deliveryDirectory 'topic-opening-live-requests.json') -Force
+    }
     Write-Output "APK: $deliveryPath"
 } finally {
     $env:JAVA_HOME = $oldJavaHome
     $env:JAVA_TOOL_OPTIONS = $oldToolOptions
     $env:SPEAKPEN_BACKEND_URL = $oldServiceUrl
     $env:SPEAKPEN_SERVICE_TOKEN = $oldServiceToken
+    $env:SPEAKPEN_FIXED_SERVICE = $oldFixedService
 }
 
 

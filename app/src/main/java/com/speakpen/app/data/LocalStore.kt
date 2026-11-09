@@ -18,6 +18,7 @@ class LocalStore(context: Context) {
         AppSettings(autoSpeak = json.optBoolean("autoSpeak", true),
             demoMode = json.optBoolean("demoModeV2", false) && (json.optInt("liveServiceVersion") >= 1 || BuildConfig.SERVICE_BASE_URL.isBlank()),
             voiceReplies = json.optBoolean("voiceReplies", true), serviceUrl = json.optString("serviceUrl"),
+            multiSegmentVoice = json.optBoolean("multiSegmentVoice", false),
             serviceAccessToken = json.optString("serviceAccessToken"),
             conversationDefaults = ConversationConfigJson.read(json.optJSONObject("conversationDefaults")))
     } catch (_: Exception) {
@@ -28,6 +29,7 @@ class LocalStore(context: Context) {
         val json = JSONObject().apply {
             put("liveServiceVersion", 1); put("serviceUrl", settings.serviceUrl); put("serviceAccessToken", settings.serviceAccessToken)
             put("autoSpeak", settings.autoSpeak); put("demoModeV2", settings.demoMode); put("voiceReplies", settings.voiceReplies)
+            put("multiSegmentVoice", settings.multiSegmentVoice)
             put("conversationDefaults", ConversationConfigJson.write(settings.conversationDefaults))
         }
         // Replacing legacy settings removes obsolete encrypted provider credentials.

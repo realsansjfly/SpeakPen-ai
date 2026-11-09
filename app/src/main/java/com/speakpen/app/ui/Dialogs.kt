@@ -6,6 +6,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +66,7 @@ fun ReviewEditor(item: ReviewItem, onDismiss: () -> Unit, onSave: (ReviewItem) -
 fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
     if (state.scenarioPickerVisible) ScenarioPicker(state, vm)
     state.scenarioEditor?.let { ScenarioEditor(it, vm::editScenario, vm::saveScenario) }
+    state.scenarioBrief?.let { ScenarioBrief(it, vm) }
     state.accumulationEditor?.let { item -> ReviewEditor(item, onDismiss = vm::dismissAccumulation, onSave = vm::saveAccumulation, state = state, vm = vm) }
     if (state.historyVisible) AlertDialog(onDismissRequest = { vm.showHistory(false) }, title = { Text("练习记录") },
         text = { LazyColumn(Modifier.heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -122,38 +127,63 @@ fun PracticeDialogs(state: PracticeState, vm: PracticeViewModel) {
 @Composable
 private fun ScenarioPicker(state: PracticeState, vm: PracticeViewModel) {
     val templates = (ScenarioPresets.all + state.scenarioTemplates).distinctBy { it.id }
-    AlertDialog(onDismissRequest = { vm.showScenarios(false) }, title = { Text("开始场景练习") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            templates.forEach { template ->
-                OutlinedButton(onClick = { vm.startScenario(template) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
-                        Text(template.name)
-                        Text("AI：${template.aiRole}；我：${template.userRole}", color = Muted, style = MaterialTheme.typography.bodySmall)
+    LearningSurface("场景练习", { vm.showScenarios(false) }) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("今天想练什么？", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(bottom = 12.dp)) }
+            items(templates, key = { it.id }) { template ->
+                Surface(onClick = { vm.showScenarioBrief(template) }, color = SoftGreen, shape = RoundedCornerShape(16.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(template.name, style = MaterialTheme.typography.titleLarge)
+                        Text("${template.userRole} · ${template.aiRole}", color = Muted, style = MaterialTheme.typography.bodyMedium)
                         val count = state.scenarioSuccesses.count { it.templateId == template.id }
                         if (count > 0) Text("已完成 $count 次", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                     }
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
-            TextButton(onClick = { vm.editScenario(ScenarioTemplate()) }, modifier = Modifier.fillMaxWidth()) { Text("自建场景") }
-        } }, confirmButton = { TextButton(onClick = { vm.showScenarios(false) }) { Text("取消") } })
+        }
+        OutlinedButton(onClick = { vm.editScenario(ScenarioTemplate()) }, modifier = Modifier.fillMaxWidth().padding(20.dp).heightIn(min = 52.dp)) {
+            Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("自建场景")
+        }
+    }
 }
 
 @Composable
 private fun ScenarioEditor(initial: ScenarioTemplate, onDismiss: (ScenarioTemplate?) -> Unit, onSave: (ScenarioTemplate) -> Unit) {
     var value by remember(initial.id) { mutableStateOf(initial) }
     var goals by remember(initial.id) { mutableStateOf(initial.goals.joinToString("\n") { it.text }) }
-    AlertDialog(onDismissRequest = { onDismiss(null) }, title = { Text("自建场景") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    var leaving by remember { mutableStateOf(false) }
+    var turns by androidx.compose.runtime.saveable.rememberSaveable(initial.id) { mutableStateOf(initial.maxTurns?.toString().orEmpty()) }
+    var validation by remember { mutableStateOf<String?>(null) }
+    fun close() { if (value != initial || goals != initial.goals.joinToString("\n") { it.text } || turns != initial.maxTurns?.toString().orEmpty()) leaving = true else onDismiss(null) }
+    LearningSurface("自建场景", onClose = ::close, actions = {
+        TextButton(onClick = {
+            val result = value.copy(goals = goals.lines().map { ScenarioGoal(text = it.trim()) }.filter { it.text.isNotBlank() }, maxTurns = turns.toIntOrNull())
+            validation = if (turns.isNotBlank() && turns.toIntOrNull() == null) "轮数上限须为 1–100 的整数。" else result.validationError()
+            if (validation == null) onSave(result)
+        }) { Text("保存") }
+    }) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("情境与角色", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value.name, { value = value.copy(name = it) }, label = { Text("场景名称／情境") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.aiRole, { value = value.copy(aiRole = it) }, label = { Text("AI 角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.userRole, { value = value.copy(userRole = it) }, label = { Text("我的角色") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            Text("任务目标", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(goals, { goals = it }, label = { Text("目标清单（每行一项）") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            Text("对话安排", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value.opening, { value = value.copy(opening = it) }, label = { Text("开场白（留空由 AI 生成）") }, minLines = 2, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value.endCondition, { value = value.copy(endCondition = it) }, label = { Text("自然语言结束条件") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value.maxTurns?.toString().orEmpty(), { value = value.copy(maxTurns = it.toIntOrNull()) }, label = { Text("轮数上限（可选）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        } },
-        confirmButton = { TextButton(onClick = { onSave(value.copy(goals = goals.lines().map { ScenarioGoal(text = it.trim()) }.filter { it.text.isNotBlank() })) }) { Text("保存") } },
-        dismissButton = { TextButton(onClick = { onDismiss(null) }) { Text("取消") } })
+            OutlinedTextField(turns, { turns = it }, label = { Text("轮数上限（可选）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            validation?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+    if (leaving) AlertDialog(onDismissRequest = { leaving = false }, title = { Text("放弃未保存的场景？") },
+        confirmButton = { TextButton(onClick = { onDismiss(null) }) { Text("放弃更改") } },
+        dismissButton = { TextButton(onClick = { leaving = false }) { Text("继续编辑") } })
 }
 
 

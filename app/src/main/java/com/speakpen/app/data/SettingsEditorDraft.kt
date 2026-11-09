@@ -7,6 +7,7 @@ data class SettingsEditorDraft(val settings: AppSettings, val sessionId: String,
     fun toJson(): String = JSONObject().apply {
         put("sessionId", sessionId); put("conversation", ConversationConfigJson.write(conversation))
         put("autoSpeak", settings.autoSpeak); put("voiceReplies", settings.voiceReplies); put("demoMode", settings.demoMode)
+        put("multiSegmentVoice", settings.multiSegmentVoice)
         put("defaults", ConversationConfigJson.write(settings.conversationDefaults))
     }.toString()
 
@@ -15,6 +16,7 @@ data class SettingsEditorDraft(val settings: AppSettings, val sessionId: String,
             val json = JSONObject(raw)
             return SettingsEditorDraft(latest.copy(autoSpeak = json.getBoolean("autoSpeak"),
                 voiceReplies = json.getBoolean("voiceReplies"), demoMode = json.getBoolean("demoMode"),
+                multiSegmentVoice = json.optBoolean("multiSegmentVoice", false),
                 conversationDefaults = ConversationConfigJson.read(json.getJSONObject("defaults"))),
                 json.getString("sessionId"), ConversationConfigJson.read(json.getJSONObject("conversation")))
         }

@@ -1,0 +1,26 @@
+[Unit]
+Description=SpeakPen API and web service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=speakpen
+Group=speakpen
+WorkingDirectory=/opt/speakpen/server
+EnvironmentFile=/etc/speakpen/speakpen.env
+ExecStart=/usr/bin/node /opt/speakpen/server/src.mjs
+Restart=on-failure
+RestartSec=5
+StateDirectory=speakpen
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/speakpen
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

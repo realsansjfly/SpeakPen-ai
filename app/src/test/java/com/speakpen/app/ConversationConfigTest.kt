@@ -99,7 +99,7 @@ class ConversationConfigTest {
             assertTrue(chat.contains("[CHINESE HELP]"))
             assertTrue(chat.contains("Do not give unsolicited grammar corrections"))
             assertTrue(LearningPrompts.optimize(source, source.messages.first())[0].second.contains(cefr))
-            assertTrue(LearningPrompts.topic(source.messages, config)[0].second.contains(cefr))
+            assertTrue(LearningPrompts.topic(source.messages + ChatMessage(role = "assistant", text = "What happened there?"), config)[0].second.contains(cefr))
             assertTrue(LearningPrompts.extract(source.messages.first(), config)[0].second.contains(cefr))
         }
         // Synthetic requests built by production code, reused by the explicit paid smoke command.
@@ -114,7 +114,7 @@ class ConversationConfigTest {
         fixture("temperature-zero-short", listOf("system" to CoachPrompts.system(ConversationMode.FREE, emptyList(), simple.copy(advanced = simple.advanced.copy(temperature = 0.0)))) + CoachPrompts.history(session()), simple.copy(advanced = simple.advanced.copy(temperature = 0.0)))
         fixture("temperature-one-extended", listOf("system" to CoachPrompts.system(ConversationMode.FREE, emptyList(), deep)) + CoachPrompts.history(session()), deep)
         fixture("optimize-simple", LearningPrompts.optimize(session(), session().messages.first()), null, "learning")
-        fixture("topic-simple", LearningPrompts.topic(session().messages, simple), null, "learning")
+        fixture("topic-simple", LearningPrompts.topic(session().messages + ChatMessage(role = "assistant", text = "What happened there?"), simple), null, "topic_bank")
         File("build/outputs/conversation-config-live-requests.json").apply { parentFile?.mkdirs(); writeText(fixtures.toString(2)) }
     }
 

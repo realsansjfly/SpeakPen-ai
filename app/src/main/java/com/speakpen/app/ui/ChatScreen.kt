@@ -33,7 +33,9 @@ import com.speakpen.app.data.*
 @Composable
 fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit, onOpenDrawer: () -> Unit, visible: Boolean) {
     val session = state.session
-    val locked = state.busy != null || state.voiceActive || state.scenarioInputBlocked
+    var topicFocused by remember(session.id) { mutableStateOf(false) }
+    val operationLocked = state.busy != null || state.voiceActive || state.scenarioInputBlocked || state.topicOpeningNeeded
+    val locked = operationLocked || topicFocused
     var typing by rememberSaveable(session.id) { mutableStateOf(false) }
     LaunchedEffect(session.id, state.draft) { if (state.draft.isNotBlank()) typing = true }
     var editing by remember { mutableStateOf<ChatMessage?>(null) }
@@ -55,14 +57,36 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
     }
     Box(Modifier.fillMaxSize()) {
     ConversationBackdrop(active = visible && state.appForeground && !state.voiceActive && state.playingId == null &&
-        !state.recapVisible && state.speakingPracticeId == null && !state.scenarioPickerVisible, modifier = Modifier.matchParentSize())
+        !state.recapVisible && state.speakingPracticeId == null && !state.scenarioPickerVisible && !topicFocused, modifier = Modifier.matchParentSize())
     Column(Modifier.fillMaxSize()) {
-        ChatHeader(state, vm, onOpenDrawer, !state.voiceActive && !state.settingsSaving, state.busy == null && !state.voiceActive)
+        ChatHeader(state, vm, onOpenDrawer, !state.voiceActive && !state.settingsSaving && !topicFocused, state.busy == null && !state.voiceActive && !topicFocused)
         if (session.mode == ConversationMode.REVIEW) Text("练习目标：" + state.library.filter { it.id in session.targetIds }.joinToString("、") { it.content },
             Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Muted, maxLines = 2)
         session.scenario?.let { practice -> ScenarioPanel(state, vm, practice) }
         HorizontalDivider(color = Line)
-        if (session.messages.isEmpty() && (state.busy != null || session.mode == ConversationMode.SCENARIO)) {
+        if (state.topicOpeningNeeded) {
+            Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
+                Text(session.openingTopic, style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(24.dp))
+                if (state.busy != null) {
+                    if (state.streamingText.isNotBlank()) Text(state.streamingText, style = MaterialTheme.typography.bodyLarge)
+                    else { CircularProgressIndicator(); Spacer(Modifier.height(12.dp)); Text("AI 正在准备开场…", color = Muted) }
+                    TextButton(onClick = vm::cancelOperation) { Text("取消等待") }
+                } else {
+                    Text("开场尚未完成", color = Muted)
+                    TextButton(onClick = vm::retryTopicOpening) { Text("重试开场") }
+                    TextButton(onClick = vm::abandonTopicOpening) { Text("返回选话题") }
+                }
+            }
+        } else if (session.lesson != null) {
+            Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
+                Text(session.lesson.template.name, style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(20.dp))
+                OutlinedButton(onClick = { vm.lessonVisible(true) }) { Text("查看示范对话") }
+                TextButton(onClick = vm::beginLearnedScenario) { Text("直接开始对话") }
+            }
+        } else if (session.messages.isEmpty() && (state.busy != null || session.mode == ConversationMode.SCENARIO)) {
             Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 if (state.busy != null) {
@@ -78,7 +102,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             TopicSuggestions(session.id, visitVersion = state.topicVisitVersion, visitActive = visible && state.appForeground,
                 nextBatch = vm::nextTopicBatch, onError = vm::error,
                 active = visible && state.appForeground && !typing && !state.voiceActive && !state.scenarioPickerVisible && !state.targetPickerVisible,
-                enabled = !locked, onSelect = { text -> vm.draft(text); typing = true }, onStart = { vm.startConversation() },
+                enabled = !operationLocked, onConfirm = vm::startTopic, onSelectionFocus = { topicFocused = it },
                 demoAvailable = !state.serviceConfigured && !state.settings.demoMode,
                 onDemo = { if (vm.preferences(state.settings.copy(demoMode = true))) vm.startConversation() },
                 modifier = Modifier.weight(1f))
@@ -109,8 +133,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             TextButton(onClick = vm::reply) { Text("重试") }
         }
         if (session.messages.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = vm::layeredHint, enabled = !locked) { Text("表达提示") }
-            TextButton(onClick = vm::topicExpressions, enabled = !locked && session.messages.any { it.isConversation && it.text.isNotBlank() }) { Text("话题语料") }
+            TextButton(onClick = { vm.showTopicOptions(true) }, enabled = !locked) { Text("话题语料") }
             TextButton(onClick = { vm.showRecaps(true, RecapKind.LATEST) }, enabled = !state.voiceActive) { Text("复盘") }
             Box {
                 IconButton(onClick = { moreVisible = true }) { Icon(Icons.Outlined.MoreHoriz, "更多学习操作") }
@@ -121,7 +144,8 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
                 }
             }
         }
-        if (!state.scenarioReadOnly) Surface(color = Color.White) {
+        if (session.lesson == null) VoiceQueuePanel(state, vm)
+        if (!state.scenarioReadOnly && session.lesson == null) Surface(color = Color.White) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = { typing = !typing }, enabled = !locked) {
@@ -130,7 +154,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
                     if (typing) {
                         OutlinedTextField(value = state.draft, onValueChange = vm::draft, enabled = !locked, modifier = Modifier.weight(1f),
                             placeholder = { Text(if (state.inputKind == InputKind.HELP) "这句话怎么表达？" else "说说你的想法…") }, maxLines = 3, shape = RoundedCornerShape(18.dp))
-                        FilledIconButton(onClick = vm::send, enabled = !locked && state.draft.isNotBlank() && !state.needsReply && state.pendingVoice == null, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowUpward, "发送") }
+                        FilledIconButton(onClick = vm::send, enabled = !locked && session.voiceQueue.isEmpty() && state.draft.isNotBlank() && !state.needsReply && state.pendingVoice == null, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowUpward, "发送") }
                     } else {
                         Box(Modifier.weight(1f)) {
                             HoldToTalk(enabled = !locked && !state.needsReply && state.pendingVoice == null, recording = state.recording,
@@ -151,7 +175,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
                     Text(if (state.inputKind == InputKind.HELP) "切回英文" else "中文求助")
                 }
                 if (state.recording) Waveform(Modifier.fillMaxWidth().height(22.dp).padding(horizontal = 80.dp, vertical = 3.dp), active = true, level = state.recordingLevel, color = MaterialTheme.colorScheme.primary)
-                else if (!typing) Text("松开发送，上滑取消", style = MaterialTheme.typography.labelSmall, color = Muted,
+                else if (!typing) Text(if (state.settings.multiSegmentVoice) "松开保存片段，上滑取消" else "松开发送，上滑取消", style = MaterialTheme.typography.labelSmall, color = Muted,
                     modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
             }
         }
@@ -159,6 +183,8 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
     if (visible && state.appForeground) ScenarioReward(state, vm)
     }
     LearningOverlays(state, vm, onRecord)
+    if (visible && state.lessonVisible && session.lesson != null) ScenarioLesson(state, vm)
+    if (visible && state.topicOptionsVisible) TopicOptionsPanel(state, vm)
     if (practiceHistoryVisible) AlertDialog(onDismissRequest = { practiceHistoryVisible = false }, title = { Text("练习录音") }, text = {
         LazyColumn { items(session.speakingPractices.asReversed(), key = { it.id }) { p ->
             TextButton(onClick = { vm.showSpeakingPractice(p.id); practiceHistoryVisible = false }, enabled = state.busy == null && !state.voiceActive) {
@@ -176,7 +202,7 @@ fun ChatScreen(state: PracticeState, vm: PracticeViewModel, onRecord: () -> Unit
             text = { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { actionMessage = null; vm.identifyExpressions(selected.id) }, enabled = usable && !locked, modifier = Modifier.fillMaxWidth()) { Text("识别好表达") }
                 TextButton(onClick = { clipboard.setText(AnnotatedString(if (selected.hintLayers.isNotEmpty()) selected.hintLayers.take(selected.revealedLayers).joinToString("\n\n") else selected.text)); actionMessage = null }, enabled = usable, modifier = Modifier.fillMaxWidth()) { Text("复制") }
-                TextButton(onClick = { actionMessage = null; if (selected.role == "user") vm.optimizeExpression(selected.id) else vm.regenerate(selected.id) }, enabled = usable && !locked, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { actionMessage = null; if (selected.role == "user") vm.optimizeExpression(selected.id) else vm.regenerate(selected.id) }, enabled = usable && !locked && selected.hintKind != HintKind.SCAFFOLD, modifier = Modifier.fillMaxWidth()) {
                     Text(if (selected.role == "user") "优化表达" else "重新生成")
                 }
                 if (!usable) Text("语音还没有文字，请先完成转写或补充文字。", color = Muted, style = MaterialTheme.typography.bodyMedium)
@@ -271,16 +297,16 @@ private fun MessageCard(message: ChatMessage, state: PracticeState, vm: Practice
                     if (!message.hintCollapsed) {
                         val current = LearningFeatures.hintCurrent(state.session, message)
                         if (message.hintLayers.isNotEmpty()) {
-                            message.hintLayers.take(message.revealedLayers).forEachIndexed { index, layer ->
+                            message.hintLayers.take(if (message.hintKind == HintKind.SCAFFOLD) message.hintLayers.size else message.revealedLayers).forEachIndexed { index, layer ->
                                 if (index > 0) HorizontalDivider(color = Sky.copy(alpha = .15f))
                                 Text(listOf("关键词", "句子骨架", "参考表达")[index], style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary)
                                 Text(layer, style = MaterialTheme.typography.bodyLarge)
                             }
-                            if (message.revealedLayers < message.hintLayers.size) TextButton(onClick = { vm.revealHint(message.id) }, enabled = current) {
+                            if (message.hintKind != HintKind.SCAFFOLD && message.revealedLayers < message.hintLayers.size) TextButton(onClick = { vm.revealHint(message.id) }, enabled = current) {
                                 Text(if (message.revealedLayers == 1) "查看句子骨架" else "查看参考表达")
                             }
                         } else Text(message.text, style = MaterialTheme.typography.bodyLarge)
-                        if (!current) Text("对话或原句已变化，请重新获取提示。", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                        if (!current && message.hintKind != HintKind.SCAFFOLD) Text("对话或原句已变化，请重新获取提示。", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         if (message.hintKind == HintKind.OPTIMIZE) TextButton(onClick = { vm.openSpeakingPractice(message.id) }, enabled = current && state.busy == null && !state.voiceActive) { Text("重说练习") }
                     }
                 }
@@ -322,6 +348,9 @@ private fun MessageCard(message: ChatMessage, state: PracticeState, vm: Practice
                 TextButton(onClick = onEdit, enabled = state.busy == null) { Text("补充文字") }
             }
             if (user && state.correctionPendingId == message.id) Text("正在检查表达…", color = Muted, style = MaterialTheme.typography.bodySmall)
+            message.audioSegments.forEachIndexed { index, segment ->
+                TextButton(onClick = { vm.playSegment(segment) }, enabled = !state.voiceActive) { Text("试听片段 ${index + 1} · ${segment.durationMs / 1000} 秒") }
+            }
             if (user && state.correctionFailedId == message.id) TextButton(onClick = { vm.retryCorrection(message.id) }, enabled = state.busy == null) { Text("纠错未完成，重试") }
         }
         if (user) { Spacer(Modifier.width(8.dp)); Box(Modifier.size(32.dp).background(SoftGreen, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, Modifier.size(20.dp), tint = Muted) } }

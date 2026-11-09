@@ -18,5 +18,6 @@ object SettingsUpdates {
     fun merge(latest: AppSettings, draft: AppSettings): AppSettings = latest.copy(
         autoSpeak = draft.autoSpeak, voiceReplies = draft.voiceReplies, demoMode = draft.demoMode,
         conversationDefaults = draft.conversationDefaults,
+        multiSegmentVoice = draft.multiSegmentVoice,
     )
 }

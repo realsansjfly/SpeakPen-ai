@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.speakpen.app.BuildConfig
 import com.speakpen.app.PracticeState
 import com.speakpen.app.PracticeViewModel
+import com.speakpen.app.data.*
 
 @Composable
 fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
@@ -81,6 +82,10 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
                         val updated = scopedConfig.copy(vocabulary = choice)
                         if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = updated)) else vm.editConversationSettings(updated)
                     }, onDismiss = { vocabularyVisible = false })
+                    EnhancementControls(scopedConfig.enhancement, enabled, state.retrievalStatus, state.retrievalVersion) { option ->
+                        val config = scopedConfig.copy(enhancement = option)
+                        if (defaultsTab) vm.editSettings(draft.copy(conversationDefaults = config)) else vm.editConversationSettings(config)
+                    }
                 }
             }
             item {
@@ -91,11 +96,14 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
             }
             item {
                 SettingsSection("显示与播放") {
+                    SettingSwitch("多段语音整合上传", "最多 6 段、总计 3 分钟。提交后统一转写；关闭后待提交片段仍保留在各会话。", draft.multiSegmentVoice, enabled && !state.voiceActive && state.busy == null) {
+                        vm.editSettings(draft.copy(multiSegmentVoice = it))
+                    }
                     SettingSwitch("显示英文原文", "关闭后显示语音块，仍可逐条展开。", !draft.voiceReplies, enabled) { vm.editSettings(draft.copy(voiceReplies = !it)) }
                     SettingSwitch("自动播放回复", "", draft.autoSpeak, enabled) { vm.editSettings(draft.copy(autoSpeak = it)) }
                 }
             }
-            item {
+            if (!BuildConfig.FIXED_SERVICE) item {
                 SettingsSection("服务连接") {
                     Text(state.serviceStatus, color = Muted, style = MaterialTheme.typography.bodyMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -131,6 +139,27 @@ fun SettingsScreen(state: PracticeState, vm: PracticeViewModel) {
             enabled = enabled && pairingText.isNotBlank() && state.busy == null && !state.voiceActive) { Text("连接") } },
         dismissButton = { TextButton(onClick = { pairingText = ""; pairingVisible = false }) { Text("取消") } },
     )
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun EnhancementControls(value: VocabularyEnhancement, enabled: Boolean, status: String, version: String, onChange: (VocabularyEnhancement) -> Unit) {
+    SettingSwitch("关联对话词汇", "检索不可用时继续使用本地词库。", value.enabled, enabled) { onChange(value.copy(enabled = it)) }
+    if (value.enabled) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("关联范围", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { RetrievalScope.entries.forEach { entry ->
+            FilterChip(value.scope == entry, { onChange(value.copy(scope = entry)) }, enabled = enabled, label = { Text(entry.label) })
+        } }
+        Text("引入强度", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { RetrievalStrength.entries.forEach { entry ->
+            FilterChip(value.strength == entry, { onChange(value.copy(strength = entry)) }, enabled = enabled, label = { Text(entry.label) })
+        } }
+        Text("每轮候选", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(4, 8, 12).forEach { count ->
+            FilterChip(value.count == count, { onChange(value.copy(count = count)) }, enabled = enabled, label = { Text("$count") })
+        } }
+        Text(status + if (version.isBlank()) "" else " · 索引 ${version.take(8)}", color = Muted, style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package com.speakpen.app
 
 import com.speakpen.app.data.*
+import com.speakpen.app.ui.NavigationGestures
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -95,5 +96,21 @@ class NavigationRegressionTest {
         val data = ConversationSessions.start(SavedData(listOf(scene), currentSessionId = scene.id), ConversationMode.FREE)
         assertEquals(scene, data.sessions.first { it.id == scene.id })
         assertTrue(data.scenarioSuccesses.isEmpty())
+    }
+
+    @Test fun topicCylinderOwnsHorizontalGestureWithoutDisablingDrawerElsewhere() {
+        val emptyFree = ChatSession(id = "empty", mode = ConversationMode.FREE)
+        val topicHome = PracticeState(page = 0, sessions = listOf(emptyFree), currentSessionId = emptyFree.id)
+        assertFalse(NavigationGestures.drawerEnabled(topicHome, navigateEnabled = true))
+        assertTrue(NavigationGestures.drawerEnabled(topicHome, navigateEnabled = true, drawerOpen = true))
+        assertTrue(NavigationGestures.drawerEnabled(topicHome, navigateEnabled = false, drawerOpen = true))
+        assertTrue(NavigationGestures.drawerEnabled(topicHome.copy(page = 2), navigateEnabled = true, drawerOpen = true))
+
+        val activeChat = topicHome.copy(sessions = listOf(emptyFree.copy(messages = listOf(ChatMessage(role = "assistant", text = "Hi")))))
+        assertTrue(NavigationGestures.drawerEnabled(activeChat, navigateEnabled = true))
+        val scenario = topicHome.copy(sessions = listOf(emptyFree.copy(mode = ConversationMode.SCENARIO)))
+        assertTrue(NavigationGestures.drawerEnabled(scenario, navigateEnabled = true))
+        assertFalse(NavigationGestures.drawerEnabled(activeChat.copy(page = 2), navigateEnabled = true))
+        assertFalse(NavigationGestures.drawerEnabled(activeChat, navigateEnabled = false))
     }
 }

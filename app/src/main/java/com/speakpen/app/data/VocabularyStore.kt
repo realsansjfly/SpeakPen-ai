@@ -15,7 +15,7 @@ class VocabularyStore(private val context: Context) {
     fun load(): List<VocabularyBook> = try {
         val imported = if (!file.baseFile.exists()) emptyList() else DataJson.objects(JSONObject(
             file.openRead().bufferedReader().use { it.readText() }).getJSONArray("books")).map(VocabularyJson::readBook)
-        builtIns() + imported
+        builtIns() + imported.map { if (it.builtIn && it.id.startsWith("ecdict-")) it.copy(archived = true) else it }
     } catch (_: Exception) {
         writable = false; warning = "词库读取失败，已暂停词库写入并保留原文件；对话和积累不受影响。"
         emptyList()
@@ -23,7 +23,7 @@ class VocabularyStore(private val context: Context) {
     fun save(books: List<VocabularyBook>) {
         check(writable) { "词库原文件异常，请先备份 vocabularies.json；未覆盖。" }
         val json = JSONObject().put("version", 1).put("books", JSONArray().apply {
-            books.filterNot { it.builtIn && it.version.startsWith("ecdict-") }.forEach { put(VocabularyJson.book(it)) }
+            books.filterNot { it.builtIn && (it.version.startsWith("ecdict-") || it.version.startsWith("anki-")) }.forEach { put(VocabularyJson.book(it)) }
         }).toString()
         val stream = file.startWrite()
         try { stream.write(json.toByteArray(Charsets.UTF_8)); file.finishWrite(stream) }
@@ -49,18 +49,31 @@ class VocabularyStore(private val context: Context) {
         .bufferedReader().use { it.readText() })
 
     private fun builtIns(): List<VocabularyBook> {
+        val ankiManifest = JSONObject(context.assets.open("vocabulary/anki-manifest.json").bufferedReader().use { it.readText() })
+        val ankiNotice = context.assets.open("vocabulary/ANKI-NOTICE.txt").bufferedReader().use { it.readText() }
+        val anki = DataJson.objects(ankiManifest.getJSONArray("books")).map { spec ->
+            val raw = context.assets.open("vocabulary/${spec.getString("file")}").bufferedReader(Charsets.UTF_8).use { it.readText() }
+            AnkiVocabulary.parse(raw, spec, ankiNotice)
+        }
+        // Retain hidden legacy snapshots so existing conversations keep their exact vocabulary digest.
+        return anki + legacyBooks()
+    }
+
+    private fun legacyBooks(): List<VocabularyBook> {
         val manifest = manifest()
         val commit = manifest.getString("commit")
         val notice = context.assets.open("vocabulary/ECDICT-LICENSE.txt").bufferedReader().use { it.readText() }
         val dictionary = dictionary
-        return listOf("cet4" to "四级", "cet6" to "六级", "ielts" to "雅思").map { (tag, name) ->
+        return listOf("cet4" to "四级", "cet6" to "六级", "ielts" to "雅思").flatMap { (tag, name) ->
             val entries = if (dictionary.isEmpty()) legacyEntries(tag, manifest)
                 else dictionary.filter { tag in it.levels.split(' ') }
             check(entries.isNotEmpty()) { "内置词表为空。" }
-            VocabularyBook(id = "ecdict-$tag", version = "ecdict-$commit", name = "${name}社区词表",
+            val book = VocabularyBook(id = "ecdict-$tag", version = "ecdict-$commit", name = "${name}社区词表（旧版）",
                 source = "https://github.com/skywind3000/ECDICT/tree/$commit（$tag 标签）",
                 license = "MIT（ECDICT）；含词典中文释义，非官方完整大纲", entries = entries, builtIn = true,
-                createdAt = 0, attribution = notice)
+                createdAt = 0, attribution = notice, archived = true)
+            val wordsOnly = legacyEntries(tag, manifest)
+            listOf(book, book.copy(entries = wordsOnly)).distinctBy { it.digest }
         }
     }
 

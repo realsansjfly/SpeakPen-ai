@@ -43,9 +43,10 @@ class LearningActionsTest {
         assertTrue(prompts[1].second.contains("我想要少点糖"))
     }
     @Test fun topicPhraseBankUsesRealConversationAndFiltersHints() {
-        val prompts = LearningPrompts.topic(sample().messages)
+        assertTrue(runCatching { LearningPrompts.topic(sample().messages) }.isFailure)
+        val prompts = LearningPrompts.topic(sample().messages + ChatMessage(role = "assistant", text = "You can ask for less sugar in your coffee."))
         assertFalse(prompts[1].second.contains("PRIVATE HINT"))
-        assertTrue(prompts[0].second.contains("4-6"))
+        assertTrue(prompts[0].second.contains("exactly 5"))
         assertTrue(prompts[1].second.contains("coffee"))
     }
     @Test fun regenerationReplacesOnlySelectedBlockAndInvalidatesAudioRevision() {

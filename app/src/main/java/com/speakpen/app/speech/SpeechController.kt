@@ -60,7 +60,7 @@ class SpeechController(
         })
     }
     @Suppress("UNUSED_PARAMETER")
-    fun start(mode: SpeechMode, inputKind: InputKind) {
+    fun start(mode: SpeechMode, inputKind: InputKind, maxDurationMs: Int = 60000) {
         if (recorder != null) return
         stopPlayback(); kind = inputKind
         try {
@@ -74,7 +74,7 @@ class SpeechController(
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioChannels(1); setAudioSamplingRate(16000); setAudioEncodingBitRate(64000)
-                setOutputFile(temp.absolutePath); setMaxDuration(60000)
+                setOutputFile(temp.absolutePath); setMaxDuration(maxDurationMs.coerceIn(1, 60000))
                 setOnInfoListener { _, what, _ -> if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) stop() }
                 prepare(); start()
             }

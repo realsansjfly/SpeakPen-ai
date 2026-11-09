@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "builtBy": "scripts/import-anki-vocabulary.py",
+  "books": [
+    {
+      "id": "anki-cet4",
+      "level": "cet4",
+      "name": "四级 Anki 词表",
+      "version": "anki-da6b62f8fd07a2fc-v1",
+      "file": "anki-cet4.json",
+      "fileName": "四级.apkg",
+      "sourceSha256": "da6b62f8fd07a2fc79a83f5cf99aac673fc23a0eb594664da25f79a2e5943825",
+      "sha256": "39a37b5e43cb5e0c03696107938e1ca0f47921d23e2bba1290c4db9a94ce9a09",
+      "bytes": 15341256,
+      "notes": 4028,
+      "entries": 4027,
+      "mergedNotes": 1,
+      "mediaFiles": 4028,
+      "coverage": {
+        "卡片背面 · 词典摘录": 3999,
+        "释义": 4028,
+        "例句": 4028,
+        "笔记": 132
+      }
+    },
+    {
+      "id": "anki-cet6",
+      "level": "cet6",
+      "name": "六级 Anki 词表",
+      "version": "anki-e35b47540859b464-v1",
+      "file": "anki-cet6.json",
+      "fileName": "六级.apkg",
+      "sourceSha256": "e35b47540859b464540c9ddbf9c99bdd6a3ffef64e7d6028d570990799f6fdbc",
+      "sha256": "32d6a35a227e558bf595e4cf8372e595a478c998d7986cde2f5e8e2982e2b367",
+      "bytes": 4169413,
+      "notes": 1652,
+      "entries": 1652,
+      "mergedNotes": 0,
+      "mediaFiles": 1656,
+      "coverage": {
+        "柯林斯解释": 1608,
+        "释义": 1651,
+        "例句": 1651,
+        "Vocabulary 简明": 476,
+        "Vocabulary 扩展": 476
+      }
+    },
+    {
+      "id": "anki-ielts",
+      "level": "ielts",
+      "name": "雅思同义替换",
+      "version": "anki-ec7f6c167991fa82-v1",
+      "file": "anki-ielts.json",
+      "fileName": "_IELTS_538.apkg",
+      "sourceSha256": "ec7f6c167991fa82bcfe2adf32fe2ff244680ea15bc79a1036f82482039789a1",
+      "sha256": "7b3ec087ffb9f9c2c9666887e4808fb5c2b4f5708574523ed3b809c70e4886fb",
+      "bytes": 128901,
+      "notes": 376,
+      "entries": 376,
+      "mergedNotes": 0,
+      "mediaFiles": 0,
+      "coverage": {
+        "同义替换": 376,
+        "释义": 376,
+        "例句": 0
+      }
+    }
+  ]
+}

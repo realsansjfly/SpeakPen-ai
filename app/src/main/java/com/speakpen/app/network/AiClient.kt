@@ -50,8 +50,20 @@ class AiClient(private val client: OkHttpClient = defaultClient()) {
         return ApiProtocol.chatText(request(config, "chat/completions", body))
     }
     suspend fun learning(config: ApiConfig, messages: List<Pair<String, String>>): String = chat(config, messages, "learning")
+    suspend fun vocabularySearch(config: ApiConfig, query: String, book: VocabularySelection, options: VocabularyEnhancement,
+        level: ExpressionDifficulty): Pair<String, List<String>> {
+        val body = JSONObject().put("query", query.takeLast(3000)).put("books", org.json.JSONArray().put(book.id))
+            .put("count", options.count).put("level", level.name).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val json = JSONObject(request(config, "vocabulary/search", body))
+        check(!json.optBoolean("fallback"))
+        val candidates = json.getJSONArray("candidates")
+        require(candidates.length() <= options.count)
+        return json.getString("version") to (0 until candidates.length()).map { i ->
+            candidates.getJSONObject(i).also { require(it.getString("book") == book.id) }.getString("id")
+        }
+    }
     suspend fun structuredLearning(config: ApiConfig, messages: List<Pair<String, String>>, purpose: String = "learning"): String {
-        require(purpose == "learning" || purpose == "summary")
+        require(purpose in listOf("learning", "summary", "topic_bank"))
         val body = JSONObject(ApiProtocol.chatBody(config.model, messages)).put("purpose", purpose).toString()
             .toRequestBody("application/json; charset=utf-8".toMediaType())
         val raw = request(config, "chat/completions", body)

@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,13 +13,21 @@ android {
         applicationId = "com.speakpen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.6.0-dev07"
+        versionCode = 20
+        versionName = "0.7.0"
         val serviceUrl = providers.gradleProperty("speakpen.serviceUrl").orElse(providers.environmentVariable("SPEAKPEN_BACKEND_URL")).orElse("").get().trim().trimEnd('/')
         require(serviceUrl.isEmpty() || serviceUrl.startsWith("https://")) { "Use an HTTPS service URL." }
         buildConfigField("String", "SERVICE_BASE_URL", "\"${serviceUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         val accessToken = providers.environmentVariable("SPEAKPEN_SERVICE_TOKEN").orElse("").get()
         buildConfigField("String", "SERVICE_ACCESS_TOKEN", "\"${accessToken.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        val fixedService = providers.environmentVariable("SPEAKPEN_FIXED_SERVICE").orElse("false").get().toBooleanStrict()
+        if (fixedService) {
+            require(serviceUrl.isNotBlank() && URI(serviceUrl).let {
+                it.scheme == "https" && !it.host.isNullOrBlank() && it.path == "/v1" && it.userInfo == null && it.query == null && it.fragment == null
+            }) { "Cloud builds require an HTTPS URL ending in /v1." }
+            require(accessToken.matches(Regex("[a-f0-9]{64}"))) { "Cloud builds require a 64-character service token." }
+        }
+        buildConfigField("boolean", "FIXED_SERVICE", fixedService.toString())
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
